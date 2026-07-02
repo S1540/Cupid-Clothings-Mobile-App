@@ -21,7 +21,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView, Edge } from "react-native-safe-area-context";
-import { fetchRecommendedProducts } from "../../backend/services/shopifyService";
+// import { fetchRecommendedProducts } from "../../backend/services/shopifyService";
 
 /**
  * ------------------------------------------------------------------
@@ -59,6 +59,21 @@ const CARD_WIDTH = SCREEN_WIDTH * 0.43;
 const CARD_SPACING = 12;
 const ANIMATION_DURATION = 300;
 const SAFE_AREA_EDGES: Edge[] = ["bottom"];
+const fetchRecommendedProducts = async (productId: string) => {
+  const response = await fetch(
+    `${process.env.EXPO_PUBLIC_API_URL}/api/products/recommendations/${encodeURIComponent(productId)}`,
+    // `http://localhost:3000/api/products/recommendations/${encodeURIComponent(productId)}`,
+  );
+
+  if (!response.ok) {
+    console.log("Status:", response.status);
+    const text = await response.text();
+    throw new Error(text);
+    console.log("Body:", text);
+  }
+
+  return response.json();
+};
 
 /**
  * ------------------------------------------------------------------
@@ -184,8 +199,10 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
       try {
         setLoading(true);
         setError(false);
-
+        console.log("Calling fetchRecommendedProducts...");
+        console.log("Selected Product ID:", product.id);
         const data = await fetchRecommendedProducts(product.id || "");
+        console.log("Recommended Products:", data);
 
         if (mounted) {
           setRecommendedProducts(data);

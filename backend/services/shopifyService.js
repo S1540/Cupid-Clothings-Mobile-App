@@ -267,88 +267,112 @@ async function fetchSingleProduct(handle) {
 
 // For Similar product show on every card
 async function fetchRecommendedProducts(productId) {
-  const response = await fetch(
-    `https://${SHOP}.myshopify.com/api/2025-01/graphql.json`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Storefront-Access-Token": STOREFRONT_TOKEN,
-      },
-      body: JSON.stringify({
-        query: `
-        query GetRecommendations($productId: ID!) {
-          productRecommendations(productId: $productId) {
-            id
-            title
-            handle
+  try {
+    console.log("========== START ==========");
+    console.log("Product ID:", productId);
+    console.log("SHOP:", SHOP);
+    console.log(
+      "TOKEN:",
+      STOREFRONT_TOKEN ? `${STOREFRONT_TOKEN.substring(0, 8)}...` : "UNDEFINED",
+    );
 
-            priceRange {
-              minVariantPrice {
-                amount
-                currencyCode
-              }
-            }
+    const response = await fetch(
+      `https://${SHOP}.myshopify.com/api/2025-01/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Storefront-Access-Token": STOREFRONT_TOKEN,
+        },
+        body: JSON.stringify({
+          query: `
+            query GetRecommendations($productId: ID!) {
+              productRecommendations(productId: $productId) {
+                id
+                title
+                handle
 
-            compareAtPriceRange {
-              minVariantPrice {
-                amount
-              }
-            }
+                priceRange {
+                  minVariantPrice {
+                    amount
+                    currencyCode
+                  }
+                }
 
-            images(first: 2) {
-              edges {
-                node {
-                  url
-                  altText
+                compareAtPriceRange {
+                  minVariantPrice {
+                    amount
+                  }
+                }
+
+                images(first: 2) {
+                  edges {
+                    node {
+                      url
+                      altText
+                    }
+                  }
                 }
               }
             }
-          }
-        }
-        `,
-        variables: {
-          productId,
-        },
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Shopify error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  console.log("Recommendation Response:", JSON.stringify(data, null, 2));
-
-  if (data.errors) {
-    throw new Error(data.errors[0].message);
-  }
-
-  return data.data.productRecommendations.map((product) => {
-    const original = parseFloat(
-      product.compareAtPriceRange?.minVariantPrice?.amount ?? 0,
+          `,
+          variables: {
+            productId,
+          },
+        }),
+      },
     );
 
-    const sale = parseFloat(product.priceRange.minVariantPrice.amount);
+    console.log("HTTP Status:", response.status);
+    console.log("HTTP OK:", response.ok);
 
-    const discount =
-      original > sale ? Math.round(((original - sale) / original) * 100) : 0;
+    const data = await response.json();
 
-    return {
-      id: product.id,
-      title: product.title,
-      handle: product.handle,
-      price: sale.toFixed(0),
-      compareAtPrice: original > sale ? original.toFixed(0) : null,
-      discountPercent: discount > 0 ? discount : null,
-      currency: product.priceRange.minVariantPrice.currencyCode,
-      images: product.images.edges.map((img) => ({
-        url: img.node.url,
-        alt: img.node.altText,
-      })),
-    };
-  });
+    console.log("Raw Response:", JSON.stringify(data, null, 2));
+
+    if (!response.ok) {
+      throw new Error(`Shopify HTTP Error: ${response.status}`);
+    }
+
+    if (data.errors) {
+      console.log("GraphQL Errors:", data.errors);
+      throw new Error(data.errors[0].message);
+    }
+
+    console.log(
+      "Recommendations Count:",
+      data.data?.productRecommendations?.length ?? 0,
+    );
+
+    return (data.data?.productRecommendations || []).map((product) => {
+      const original = parseFloat(
+        product.compareAtPriceRange?.minVariantPrice?.amount ?? 0,
+      );
+
+      const sale = parseFloat(product.priceRange.minVariantPrice.amount);
+
+      const discount =
+        original > sale ? Math.round(((original - sale) / original) * 100) : 0;
+
+      return {
+        id: product.id,
+        title: product.title,
+        handle: product.handle,
+        price: sale.toFixed(0),
+        compareAtPrice: original > sale ? original.toFixed(0) : null,
+        discountPercent: discount || null,
+        currency: product.priceRange.minVariantPrice.currencyCode,
+        images: product.images.edges.map((img) => ({
+          url: img.node.url,
+          alt: img.node.altText,
+        })),
+      };
+    });
+  } catch (err) {
+    console.log("========== ERROR ==========");
+    console.log(err);
+    throw err;
+  }
 }
 
 module.exports = {

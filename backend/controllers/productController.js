@@ -54,10 +54,28 @@ const getProductByHandle = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch product" });
   }
 };
+const { fetchRecommendedProducts } = require("../services/shopifyService");
+
+const getRecommendations = async (req, res) => {
+  try {
+    const products = await fetchRecommendedProducts(req.params.productId);
+    res.json(products);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+};
+
+module.exports = {
+  getRecommendations,
+};
 
 module.exports = {
   getProductByCollection,
   getMenu,
   searchedProducts,
   getProductByHandle,
+  getRecommendations,
 };
