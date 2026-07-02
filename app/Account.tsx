@@ -157,50 +157,86 @@ const Account = () => {
         <SignUpModel openModal={openSignup} setOpenModal={setOpenSignup} />
         <StatusBar barStyle="dark-content" backgroundColor="#f6f6f6" />
         <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-          {/* TOP GUEST BANNER*/}
-          <View className="bg-white px-4 pt-6 pb-5 flex-row items-center justify-between border-b border-[#f0f0f0]">
-            <View>
-              <Text className="text-[22px] font-black text-[#1c1c1c] tracking-tight">
-                {isLoggedIn ? `${user?.userName}` : "Guest"}
-              </Text>
-              <Text className="text-[13px] text-[#999] mt-1">
-                {isLoggedIn
-                  ? "Welcome Back, Stay With Cupid."
-                  : "Log in to access your orders & more"}
-              </Text>
-            </View>
-            <View className="flex-row gap-2">
-              {/* Login & Signup buttons  */}
-              <Pressable
-                onPress={handleSignOut}
-                className={`border border-[#F87387] rounded-md px-4 py-2 ${
-                  isLoggedIn ? "block" : "hidden"
-                }`}
-              >
-                <Text className="text-[#F87387] font-bold text-[13px]">
-                  Log Out
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setOpenLogin(!openLogin)}
-                className={`border border-[#F87387] rounded-md px-4 py-2 ${
-                  isLoggedIn ? "hidden" : ""
-                }`}
-              >
-                <Text className="text-[#F87387] font-bold text-[13px]">
-                  Log In
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setOpenSignup(!openSignup)}
-                className={`bg-[#F87387] rounded-md px-4 py-2 ${
-                  isLoggedIn ? "hidden" : ""
-                }`}
-              >
-                <Text className="text-white font-bold text-[13px]">
-                  Sign Up
-                </Text>
-              </Pressable>
+          {/* ───────────────────── ACCOUNT HEADER (redesigned) ───────────────────── */}
+          <View className="px-4 pt-4 pb-2">
+            <View
+              className="bg-white rounded-[6px] border border-[#f4f4f4] px-4 py-5"
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.05,
+                shadowRadius: 12,
+                elevation: 2,
+              }}
+            >
+              {/* Identity row: avatar + name/subtitle. flex-1 + min-w-0 on the
+                  text column lets long usernames/subtitles wrap or truncate
+                  instead of pushing the layout wider than the screen. */}
+              <View className="flex-row items-center">
+                <View
+                  className="w-14 h-14 rounded-full items-center justify-center mr-3 shrink-0"
+                  style={{ backgroundColor: "#FFF0F3" }}
+                >
+                  {isLoggedIn ? (
+                    <Text className="text-[20px] font-black text-[#F87387]">
+                      {user?.userName?.charAt(0)?.toUpperCase() ?? "U"}
+                    </Text>
+                  ) : (
+                    <Ionicons name="person" size={26} color="#F87387" />
+                  )}
+                </View>
+
+                <View className="flex-1 min-w-0">
+                  <Text
+                    numberOfLines={1}
+                    className="text-[14px] font-black text-[#1c1c1c] tracking-wide"
+                  >
+                    {isLoggedIn ? `${user?.userName || user?.email}` : "Guest"}
+                  </Text>
+                  <Text
+                    numberOfLines={2}
+                    className="text-[12.5px] text-[#999] mt-[3px] leading-[17px]"
+                  >
+                    {isLoggedIn
+                      ? "Welcome back, stay with Cupid."
+                      : "Log in to access your orders, wishlist and exclusive offers."}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Actions row: full-width flex buttons (flex-1 each) instead of
+                  fixed widths, so on narrow screens they shrink together and
+                  never clip or overflow — guaranteed equal height via py-3. */}
+              {isLoggedIn ? (
+                <Pressable
+                  onPress={handleSignOut}
+                  className="flex-row items-center justify-center border border-[#F87387] rounded-[6px] py-3 mt-4 active:bg-[#FFF5F7]"
+                >
+                  <Feather name="log-out" size={15} color="#F87387" />
+                  <Text className="text-[#F87387] font-bold text-[13.5px] ml-2">
+                    Log Out
+                  </Text>
+                </Pressable>
+              ) : (
+                <View className="flex-row gap-3 mt-4">
+                  <Pressable
+                    onPress={() => setOpenLogin(!openLogin)}
+                    className="flex-1 items-center justify-center border border-[#F87387] rounded-[6px] py-3 active:bg-[#FFF5F7]"
+                  >
+                    <Text className="text-[#F87387] font-bold text-[13.5px]">
+                      Log In
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setOpenSignup(!openSignup)}
+                    className="flex-1 items-center justify-center bg-[#F87387] rounded-[6px] py-3 active:opacity-90"
+                  >
+                    <Text className="text-white font-bold text-[13.5px]">
+                      Sign Up
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           </View>
 
@@ -231,21 +267,19 @@ const Account = () => {
           <SectionLabel title="Offers & Rewards" />
           <Card>
             <Row
-              icon={<Feather name="tag" size={18} color="#F87387" />}
+              icon={<Feather name="tag" size={18} color="#555" />}
               label="Coupons & Discounts"
               subtitle="3 coupons available"
             />
             <Row
               onPress={() => router.push("./Cupidcoins")}
-              icon={<Ionicons name="star-outline" size={18} color="#F87387" />}
+              icon={<Ionicons name="star-outline" size={18} color="#555" />}
               label="Cupid Coins"
               subtitle="1,240 Cupid Coins · Tap to redeem"
             />
             <Row
               onPress={() => router.push("./ReferAndEarn")}
-              icon={
-                <Ionicons name="people-outline" size={18} color="#F87387" />
-              }
+              icon={<Ionicons name="people-outline" size={18} color="#555" />}
               label="Refer & Earn"
               subtitle="Invite friends, earn ₹121 each after first order delivered"
               showBorder={false}
@@ -350,13 +384,13 @@ const Account = () => {
           </Card>
 
           {/* -------------------------------- FOOTER------------------------------------ */}
-          <View className="mx-4 mt-4 mb-10">
-            <Pressable className="flex-row items-center justify-center gap-2 border border-[#e8e8e8] rounded-md py-4 bg-white">
+          <View className="mx-4 mt-1 mb-10">
+            {/* <Pressable className="flex-row items-center justify-center gap-2 border border-[#e8e8e8] rounded-md py-4 bg-white">
               <Feather name="log-in" size={16} color="#F87387" />
               <Text className="text-[#F87387] font-bold text-[14px]">
                 Log In / Sign Up
               </Text>
-            </Pressable>
+            </Pressable> */}
             <Text className="text-center text-[#c0c0c0] text-[11px] mt-4">
               Cupid Clothings v1.0.0 · Made with Unnity
             </Text>

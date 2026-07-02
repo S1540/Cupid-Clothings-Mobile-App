@@ -265,9 +265,96 @@ async function fetchSingleProduct(handle) {
   };
 }
 
+// For Similar product show on every card
+async function fetchRecommendedProducts(productId) {
+  const response = await fetch(
+    `https://${SHOP}.myshopify.com/api/2025-01/graphql.json`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Storefront-Access-Token": STOREFRONT_TOKEN,
+      },
+      body: JSON.stringify({
+        query: `
+        query GetRecommendations($productId: ID!) {
+          productRecommendations(productId: $productId) {
+            id
+            title
+            handle
+
+            priceRange {
+              minVariantPrice {
+                amount
+                currencyCode
+              }
+            }
+
+            compareAtPriceRange {
+              minVariantPrice {
+                amount
+              }
+            }
+
+            images(first: 2) {
+              edges {
+                node {
+                  url
+                  altText
+                }
+              }
+            }
+          }
+        }
+        `,
+        variables: {
+          productId,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Shopify error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  console.log("Recommendation Response:", JSON.stringify(data, null, 2));
+
+  if (data.errors) {
+    throw new Error(data.errors[0].message);
+  }
+
+  return data.data.productRecommendations.map((product) => {
+    const original = parseFloat(
+      product.compareAtPriceRange?.minVariantPrice?.amount ?? 0,
+    );
+
+    const sale = parseFloat(product.priceRange.minVariantPrice.amount);
+
+    const discount =
+      original > sale ? Math.round(((original - sale) / original) * 100) : 0;
+
+    return {
+      id: product.id,
+      title: product.title,
+      handle: product.handle,
+      price: sale.toFixed(0),
+      compareAtPrice: original > sale ? original.toFixed(0) : null,
+      discountPercent: discount > 0 ? discount : null,
+      currency: product.priceRange.minVariantPrice.currencyCode,
+      images: product.images.edges.map((img) => ({
+        url: img.node.url,
+        alt: img.node.altText,
+      })),
+    };
+  });
+}
+
 module.exports = {
   fetchProducts,
   fetchMenu,
   searchProducts,
   fetchSingleProduct,
+  fetchRecommendedProducts,
 };

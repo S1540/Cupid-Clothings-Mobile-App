@@ -11,7 +11,6 @@ import {
   StyleSheet,
   ListRenderItem,
   RefreshControl,
-  PanResponder,
 } from "react-native";
 import { Image } from "expo-image";
 import Carousel from "react-native-reanimated-carousel";
@@ -25,10 +24,13 @@ import React, {
   memo,
   useRef,
 } from "react";
-import { EvilIcons } from "@expo/vector-icons";
+import { EvilIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useRouter } from "expo-router";
 import HomeSkeleton from "@/components/ui/HomeSkeleton";
 import CircleLoader from "@/components/CircleLoader";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
+import Similarproductsmodal from "@/components/modal/Similarproductsmodal";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type Subcategory = { title: string; handle: string; image: string | null };
@@ -153,12 +155,12 @@ const OFFERS: Offer[] = [
   {
     id: 1,
     image:
-      "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1780733621/ChatGPT_Image_Jun_6_2026_12_34_32_PM_yuuycn.png",
+      "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782893616/2_jm4lib.png",
   },
   {
     id: 2,
     image:
-      "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1780733622/ChatGPT_Image_Jun_6_2026_12_38_21_PM_fohthr.png",
+      "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782893616/1_uwz60k.png",
   },
 ];
 
@@ -320,8 +322,7 @@ const CategoryItem = memo(
         <Image
           source={{ uri: item.image }}
           style={{ width: "100%", height: "100%" }}
-          resizeMode="contain"
-          fadeDuration={0}
+          contentFit="cover"
         />
       </View>
       <Text style={styles.categoryLabel} numberOfLines={2}>
@@ -355,19 +356,25 @@ const ImageDots = memo(
 
 // ─── PRODUCT IMAGE SWIPER ─────────────────────────────────────────────────────
 //
-// Root cause of swipe not working:
-//   Pressable wrapping the View intercepts the touch BEFORE PanResponder's
-//   onMoveShouldSetPanResponder fires. Pressable holds the responder lock,
-//   so PanResponder never gets a chance to claim horizontal movement.
+// Gesture API implementation (react-native-gesture-handler v2+).
 //
-// Fix:
-//   - Replace Pressable with plain View on the image container
-//   - Claim the gesture on START (onStartShouldSetPanResponder: true)
-//     so we get every touch immediately, before FlatList or anything else
-//   - Track touch start time in a ref; if released fast with tiny movement = tap
-//   - Cancel and release to FlatList only when movement is clearly vertical
+// Pan gesture:
+//   - activeOffsetX: only activates once horizontal movement crosses a small
+//     threshold, so it doesn't eat vertical touches meant for FlatList.
+//   - failOffsetY: if the finger moves vertically past this threshold first,
+//     the gesture FAILS and hands the touch back to the native responder
+//     chain — FlatList scrolls exactly as if this view weren't here.
 //
-// This is exactly how Myntra/Zara/Flipkart handle it internally.
+// Tap gesture:
+//   - maxDistance keeps it a "true tap" (no drag), so a swipe never
+//     accidentally triggers navigation.
+//
+// Gesture.Exclusive(panGesture, tapGesture):
+//   - Only one of the two can ever win per touch. If Pan activates
+//     (clear horizontal movement), Tap is cancelled, and vice versa.
+//
+// This is the same pattern used by production apps like Myntra/Zara/Ajio:
+// declarative gesture arbitration instead of manual responder negotiation.
 
 type ProductImageSwiperProps = {
   images: { url: string; alt: string }[];
@@ -378,109 +385,66 @@ type ProductImageSwiperProps = {
 const ProductImageSwiper = memo(
   ({ images, height, onPress }: ProductImageSwiperProps) => {
     const [activeIndex, setActiveIndex] = useState(0);
-
-    // All gesture state in refs — no renders during pan
-    const touchStartTimeRef = useRef(0);
-    const isDraggingVerticallyRef = useRef(false);
-    const hasMoved = useRef(false);
     const totalImages = images.length;
 
-    const panResponder = useMemo(
+    const goNext = useCallback(() => {
+      setActiveIndex((prev) => (prev < totalImages - 1 ? prev + 1 : prev));
+    }, [totalImages]);
+
+    const goPrev = useCallback(() => {
+      setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
+    }, []);
+
+    const panGesture = useMemo(
       () =>
-        PanResponder.create({
-          onStartShouldSetPanResponderCapture: () => false,
-
-          // Also claim on move to handle cases where FlatList grabbed it first
-          onMoveShouldSetPanResponder: (_evt, gs) => {
-            const absDx = Math.abs(gs.dx);
-            const absDy = Math.abs(gs.dy);
-            // Clearly horizontal and has moved enough
-            if (absDx > absDy && absDx > 5) return true;
-            return false;
-          },
-          onMoveShouldSetPanResponderCapture: () => false,
-
-          onPanResponderGrant: () => {
-            touchStartTimeRef.current = Date.now();
-            isDraggingVerticallyRef.current = false;
-            hasMoved.current = false;
-          },
-
-          onPanResponderMove: (_evt, gs) => {
-            const absDx = Math.abs(gs.dx);
-            const absDy = Math.abs(gs.dy);
-
-            if (absDx > 3 || absDy > 3) {
-              hasMoved.current = true;
+        Gesture.Pan()
+          .activeOffsetX([-10, 10])
+          .failOffsetY([-VERTICAL_CANCEL_THRESHOLD, VERTICAL_CANCEL_THRESHOLD])
+          .onEnd((e) => {
+            "worklet";
+            if (totalImages <= 1) return;
+            if (e.translationX < -SWIPE_THRESHOLD) {
+              runOnJS(goNext)();
+            } else if (e.translationX > SWIPE_THRESHOLD) {
+              runOnJS(goPrev)();
             }
+          }),
+      [totalImages, goNext, goPrev],
+    );
 
-            // If vertical movement dominates, release to FlatList
-            if (absDy > absDx && absDy > VERTICAL_CANCEL_THRESHOLD) {
-              isDraggingVerticallyRef.current = true;
+    const tapGesture = useMemo(
+      () =>
+        Gesture.Tap()
+          .maxDistance(10)
+          .onEnd((_e, success) => {
+            "worklet";
+            if (success) {
+              runOnJS(onPress)();
             }
-          },
+          }),
+      [onPress],
+    );
 
-          onPanResponderRelease: (_evt, gs) => {
-            const elapsed = Date.now() - touchStartTimeRef.current;
-
-            // Vertical scroll — do nothing, let FlatList handle
-            if (isDraggingVerticallyRef.current) return;
-
-            // Swipe left → next image
-            if (gs.dx < -SWIPE_THRESHOLD && totalImages > 1) {
-              setActiveIndex((prev) =>
-                prev < totalImages - 1 ? prev + 1 : prev,
-              );
-              return;
-            }
-
-            // Swipe right → prev image
-            if (gs.dx > SWIPE_THRESHOLD && totalImages > 1) {
-              setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
-              return;
-            }
-
-            // Fast tap with no meaningful movement = navigate to product
-            if (
-              !hasMoved.current ||
-              (elapsed < 250 && Math.abs(gs.dx) < 10 && Math.abs(gs.dy) < 10)
-            ) {
-              onPress();
-            }
-          },
-
-          onPanResponderTerminate: () => {
-            isDraggingVerticallyRef.current = false;
-            hasMoved.current = false;
-          },
-
-          // Release to FlatList when it needs to take over (e.g. momentum)
-          onPanResponderTerminationRequest: (_evt, gs) => {
-            // Only release if movement is clearly vertical
-            return Math.abs(gs.dy) > Math.abs(gs.dx);
-          },
-        }),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      [totalImages, onPress],
+    const composedGesture = useMemo(
+      () => Gesture.Exclusive(panGesture, tapGesture),
+      [panGesture, tapGesture],
     );
 
     const currentImageUrl = images[activeIndex]?.url ?? DEFAULT_IMAGE;
 
     return (
-      // View instead of Pressable — Pressable was blocking PanResponder
-      // from ever receiving the touch. onPress is handled inside PanResponder.
-      <View
-        style={[styles.productImageWrap, { height }]}
-        {...panResponder.panHandlers}
-      >
-        <Image
-          source={{ uri: currentImageUrl }}
-          style={StyleSheet.absoluteFillObject}
-          resizeMode="cover"
-          fadeDuration={0}
-        />
-        <ImageDots count={totalImages} activeIndex={activeIndex} />
-      </View>
+      <GestureDetector gesture={composedGesture}>
+        <View style={[styles.productImageWrap, { height }]}>
+          <Image
+            source={{ uri: currentImageUrl }}
+            style={StyleSheet.absoluteFillObject}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={120}
+          />
+          <ImageDots count={totalImages} activeIndex={activeIndex} />
+        </View>
+      </GestureDetector>
     );
   },
 );
@@ -490,9 +454,12 @@ const ProductCard = memo(
   ({
     item,
     productImageHeight,
+
+    onPress,
   }: {
     item: Product;
     productImageHeight: number;
+    onPress: () => void;
   }) => {
     const router = useRouter();
 
@@ -506,8 +473,6 @@ const ProductCard = memo(
     const handlePrefetch = useCallback(() => {
       router.prefetch(`/product/${item.handle}`);
     }, [item.handle]);
-
-    // Normalize image list once, not on every render
     const images = useMemo(
       () =>
         item.images?.length ? item.images : [{ url: DEFAULT_IMAGE, alt: "" }],
@@ -523,17 +488,25 @@ const ProductCard = memo(
           onPress={handlePress}
         />
 
-        {/*
-          Wishlist button floats above the swiper at z-index 10.
-          It is NOT inside ProductImageSwiper so its Pressable is never
-          swallowed by the PanResponder.
-        */}
         <Pressable
           onPressIn={handlePrefetch}
           style={styles.wishlistBtn}
           hitSlop={8}
         >
-          <EvilIcons name="heart" size={24} color="black" />
+          <EvilIcons name="heart" size={24} color="black" opacity={0.5} />
+        </Pressable>
+        <Pressable
+          onPress={onPress}
+          onPressIn={handlePrefetch}
+          style={styles.similerBtn}
+          hitSlop={8}
+        >
+          <MaterialCommunityIcons
+            name="cards-outline"
+            size={24}
+            color="black"
+            opacity={0.5}
+          />
         </Pressable>
 
         {/* Info section — separate Pressable so the whole card is tappable */}
@@ -752,6 +725,8 @@ export default function Index() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [filterVisible, setFilterVisible] = useState(false);
+  const [similarModal, setSimilarModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     priceRange: null,
     sizes: [],
@@ -765,8 +740,8 @@ export default function Index() {
   const isFirstLoad = useRef(true);
   const prefetchedImages = useRef<Set<string>>(new Set());
   const banners = BANNERS[activeNav] ?? [];
-
-  const bannerHeight = Math.min(Math.round(height * 0.65), 680);
+  const BANNER_RATIO = 1345 / 895;
+  const bannerHeight = Math.round(width * BANNER_RATIO);
   const offerHeight = Math.round(width * 0.24);
   const categorySize = Math.round(width * 0.24);
   const cardWidth = (width - 32 - 8) / 2;
@@ -794,7 +769,7 @@ export default function Index() {
       if (!isFirstLoad.current) setRefreshing(true);
       try {
         const response = await fetch(
-          `http://${process.env.EXPO_PUBLIC_NETWORK_ADDRESS}:3000/api/products/${activeNav.toLowerCase()}`,
+          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${activeNav.toLowerCase()}`,
         );
         const data: Product[] = await response.json();
         setAllProducts(shuffleArray(data));
@@ -815,7 +790,7 @@ export default function Index() {
     const fetchMenu = async () => {
       try {
         const response = await fetch(
-          `http://${process.env.EXPO_PUBLIC_NETWORK_ADDRESS}:3000/api/products/menu/new-menu-07-12-2024`,
+          `${process.env.EXPO_PUBLIC_API_URL}/api/products/menu/new-menu-07-12-2024`,
         );
         const data: MenuItem[] = await response.json();
         setMenuData(data);
@@ -846,7 +821,7 @@ export default function Index() {
     setPullToRefresh(true);
     try {
       const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_NETWORK_ADDRESS}:3000/api/products/${activeNav.toLowerCase()}`,
+        `${process.env.EXPO_PUBLIC_API_URL}/api/products/${activeNav.toLowerCase()}`,
       );
       const data: Product[] = await response.json();
       setAllProducts(shuffleArray(data));
@@ -873,9 +848,17 @@ export default function Index() {
     [categorySize],
   );
 
+  const openSimilarModal = useCallback((product: Product) => {
+    setSimilarModal(true);
+    setSelectedProduct(product);
+  }, []);
   const renderProduct = useCallback(
     ({ item }: { item: Product }) => (
-      <ProductCard item={item} productImageHeight={productImageHeight} />
+      <ProductCard
+        item={item}
+        productImageHeight={productImageHeight}
+        onPress={() => openSimilarModal(item)}
+      />
     ),
     [productImageHeight],
   );
@@ -960,6 +943,13 @@ export default function Index() {
           />
         </>
       )}
+      {/* Similar products modal */}
+
+      <Similarproductsmodal
+        visible={similarModal}
+        product={selectedProduct}
+        onClose={() => setSimilarModal(false)}
+      />
     </View>
   );
 }
@@ -983,7 +973,7 @@ const styles = StyleSheet.create({
   offerSlide: {
     height: "100%",
     overflow: "hidden",
-    borderRadius: 12,
+    borderRadius: 6,
   },
   dotsRow: {
     flexDirection: "row",
@@ -1025,7 +1015,7 @@ const styles = StyleSheet.create({
   productCard: {
     width: "49%",
     backgroundColor: "#fff",
-    borderRadius: 8,
+    borderRadius: 6,
     overflow: "hidden",
     marginBottom: 14,
     borderWidth: 0.5,
@@ -1038,6 +1028,18 @@ const styles = StyleSheet.create({
   },
   // Wishlist sits outside the swiper at absolute position
   wishlistBtn: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "rgba(255,255,255,0.75)",
+    borderRadius: 20,
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  similerBtn: {
     position: "absolute",
     top: 8,
     right: 8,

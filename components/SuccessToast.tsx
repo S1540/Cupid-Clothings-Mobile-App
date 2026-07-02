@@ -5,11 +5,15 @@ import { useRouter } from "expo-router";
 type Props = {
   visible: boolean;
   text?: string;
+  pathname?: any;
+  linkText?: string;
 };
 
 const SuccessToast = ({
   visible,
   text = "Added to Bag Successfully",
+  pathname = "/Cart",
+  linkText = "Go to Bag",
 }: Props) => {
   const slideAnim = useRef(new Animated.Value(200)).current;
   const router = useRouter();
@@ -63,7 +67,7 @@ const SuccessToast = ({
         }}
       >
         <Pressable
-          onPress={() => router.push("/Cart")}
+          onPress={() => router.push(pathname)}
           style={{
             paddingHorizontal: 12,
             paddingVertical: 8,
@@ -73,7 +77,7 @@ const SuccessToast = ({
           }}
         >
           <Text style={{ color: "#F87387", fontSize: 15, fontWeight: "700" }}>
-            Go to Bag
+            {linkText}
           </Text>
         </Pressable>
 

@@ -31,8 +31,8 @@ type SignupModalProps = {
 
 const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
   const slideAnim = useRef(new Animated.Value(400)).current;
-  const [name, setName] = useState("");
-  const [number, setNumber] = useState("");
+  // const [name, setName] = useState("");
+  // const [number, setNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState("");
@@ -61,9 +61,11 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
 
         referrerDoc = refSnap.docs[0];
       }
-      const generatedReferralCode =
-        name.replace(/\s/g, "").substring(0, 4).toUpperCase() +
-        Math.floor(10000 + Math.random() * 90000);
+      const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+      const generatedReferralCode = Array.from({ length: 7 }, () =>
+        characters.charAt(Math.floor(Math.random() * characters.length)),
+      ).join("");
 
       const response = await createUserWithEmailAndPassword(
         auth,
@@ -72,9 +74,9 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
       );
 
       await setDoc(doc(db, "users", response.user.uid), {
-        userName: name,
+        // userName: name,
         email,
-        number,
+        // number,
         referralCode: generatedReferralCode,
         referredBy: referralCode.trim().toUpperCase() || null,
         totalReferrals: 0,
@@ -153,7 +155,7 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
               </View>
 
               {/* NAME */}
-              <View className="mb-4">
+              {/* <View className="mb-4">
                 <Text className="text-[13px] font-semibold text-[#444] mb-2">
                   Full Name
                 </Text>
@@ -164,10 +166,10 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
                   placeholderTextColor="#aaa"
                   className="border border-[#eee] rounded-xl px-4 py-4 text-[15px]"
                 />
-              </View>
+              </View> */}
 
               {/* PHONE */}
-              <View className="mb-4">
+              {/* <View className="mb-4">
                 <Text className="text-[13px] font-semibold text-[#444] mb-2">
                   Phone Number
                 </Text>
@@ -179,7 +181,7 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
                   keyboardType="phone-pad"
                   className="border border-[#eee] rounded-xl px-4 py-4 text-[15px]"
                 />
-              </View>
+              </View> */}
 
               {/* EMAIL */}
               <View className="mb-4">

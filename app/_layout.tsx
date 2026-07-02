@@ -38,8 +38,10 @@ export default function RootLayout() {
     pathname === "/Addresses" ||
     pathname === "/Add-Address" ||
     pathname === "/Select-Location" ||
-    pathname === "/Search";
-
+    pathname === "/Search" ||
+    pathname === "/Orders" ||
+    pathname === "/Order-Details" ||
+    pathname === "/Wishlist";
   useEffect(() => {
     let unsubscribeUser: (() => void) | undefined;
 

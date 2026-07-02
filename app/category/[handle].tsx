@@ -192,7 +192,7 @@ const Handle = () => {
       setLoading(true);
       try {
         const response = await fetch(
-          `http://${process.env.EXPO_PUBLIC_NETWORK_ADDRESS}:3000/api/products/${handle}`,
+          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${handle}`,
         );
         const data = await response.json();
         setProducts(data);

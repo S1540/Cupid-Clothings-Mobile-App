@@ -13,8 +13,13 @@ import {
   Pressable,
   StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, Feather, EvilIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  Ionicons,
+  Feather,
+  EvilIcons,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import { router } from "expo-router";
 import {
   collection,
@@ -28,8 +33,6 @@ import { getAuth } from "firebase/auth";
 import { db } from "../firebaseConfig";
 import { useCartStore } from "@/store/cartStore";
 import { Stack } from "expo-router";
-const { width } = Dimensions.get("window");
-const CARD_WIDTH = (width - 48) / 2;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -350,33 +353,55 @@ const EmptyState: React.FC = () => {
   }, []);
 
   return (
-    <View style={styles.emptyContainer}>
-      <Animated.View style={{ transform: [{ translateY: floatAnim }] }}>
-        <View style={styles.emptyIconRing}>
-          <Image
-            source={{
-              uri: "https://img.icons8.com/external-flaticons-flat-flat-icons/64/external-wishlist-cyber-monday-flaticons-flat-flat-icons.png",
-            }}
-            style={{
-              width: 94,
-              height: 94,
-              borderRadius: 50,
-            }}
-            resizeMode="contain"
-          />
-          {/* <Ionicons name="heart-outline" size={40} color={C.brand} /> */}
-        </View>
-      </Animated.View>
-      <Text style={styles.emptyTitle}>Your wishlist is feeling lonely.</Text>
-      <Text style={styles.emptySubtitle}>
-        Save pieces you love and come back to them anytime.
-      </Text>
-      <TouchableOpacity
-        style={styles.shopBtn}
-        onPress={() => router.push("/")}
-        activeOpacity={0.85}
+    <View
+      style={{
+        flexGrow: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 30,
+        backgroundColor: "#fff",
+      }}
+    >
+      {/* <Ionicons name="cloud-offline-outline" size={50} color="#F87387" /> */}
+      <MaterialCommunityIcons
+        name="heart-multiple-outline"
+        size={50}
+        color="#F87387"
+      />
+      <Text
+        style={{
+          fontSize: 18,
+          fontWeight: "700",
+          marginTop: 16,
+          color: "#222",
+        }}
       >
-        <Text style={styles.shopBtnText}>Continue Shopping</Text>
+        Your wishlist is feeling empty
+      </Text>
+
+      <Text
+        style={{
+          marginTop: 8,
+          textAlign: "center",
+          color: "#888",
+        }}
+      >
+        Save pieces you love and come back {"\n"} to them anytime.
+      </Text>
+
+      <TouchableOpacity
+        onPress={() => router.push("/")}
+        style={{
+          marginTop: 24,
+          backgroundColor: "#F87387",
+          paddingHorizontal: 24,
+          paddingVertical: 10,
+          borderRadius: 4,
+        }}
+      >
+        <Text style={{ color: "#fff", fontWeight: "700" }}>
+          Continue Shopping
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -412,7 +437,7 @@ export default function WishlistScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const addToCart = useCartStore((s) => s.addCartItem);
-
+  const insets = useSafeAreaInsets();
   const auth = getAuth();
   const uid = auth.currentUser?.uid;
 
@@ -495,7 +520,9 @@ export default function WishlistScreen() {
 
   if (loading) {
     return (
-      <View style={styles.safe}>
+      <View
+        style={{ flex: 1, backgroundColor: C.bg, paddingBottom: insets.bottom }}
+      >
         <Stack.Screen
           options={{
             headerTitle: () => (
@@ -578,7 +605,9 @@ export default function WishlistScreen() {
           ),
         }}
       />
-      <View style={styles.safe}>
+      <View
+        style={{ flex: 1, backgroundColor: C.bg, paddingBottom: insets.bottom }}
+      >
         <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
 
         <FlatList
@@ -626,11 +655,6 @@ export default function WishlistScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: C.bg,
-    paddingBottom: 50,
-  },
   // Summary Bar
   summaryBar: {
     flexDirection: "row",

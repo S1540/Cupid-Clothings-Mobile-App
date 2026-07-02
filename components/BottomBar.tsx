@@ -3,6 +3,7 @@ import { Href, usePathname, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { useCartStore } from "@/store/cartStore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ACTIVE = "#F87387";
 const INACTIVE = "#8A8A8A";
@@ -11,6 +12,7 @@ export default function BottomBar() {
   const router = useRouter();
   const pathname = usePathname();
   const cartCount = useCartStore((state) => state.cartCount);
+  const insets = useSafeAreaInsets();
 
   const TabItem = ({ route, icon }: { route: Href; icon: React.ReactNode }) => {
     const active = pathname === route;
@@ -50,14 +52,14 @@ export default function BottomBar() {
         bottom: 0,
         left: 0,
         right: 0,
-        height: 76,
         backgroundColor: "#fff",
         borderTopWidth: 1,
         borderTopColor: "#EFEFEF",
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-around",
-        paddingBottom: 8,
+        height: 60 + Math.max(insets.bottom, 12),
+        paddingBottom: Math.max(insets.bottom, 12),
         elevation: 30,
         zIndex: 9999,
       }}

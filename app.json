@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "cupid-clothing",
+    "name": "Cupid Clothing",
     "slug": "cupid-clothing",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -26,7 +26,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "package": "com.cupid.clothing"
     },
@@ -55,13 +56,18 @@
           }
         }
       ],
-
       "expo-video",
       "expo-speech-recognition"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "babad26a-aa59-4449-bece-34225870471f"
+      }
     }
   }
 }

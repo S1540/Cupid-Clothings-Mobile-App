@@ -539,8 +539,8 @@ export default function MyAddressesScreen() {
     <View
       style={{
         flex: 1,
-        backgroundColor: "#FFF7F8",
-        paddingBottom: insets.bottom + 10,
+        backgroundColor: "#fff",
+        paddingBottom: insets.bottom,
       }}
     >
       <Stack.Screen

@@ -7,12 +7,13 @@ import {
   StatusBar,
   Pressable,
   Image,
+  TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { EvilIcons, Ionicons } from "@expo/vector-icons";
 import { db, auth } from "@/firebaseConfig";
-import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { OrdersSkeleton } from "@/components/ui/OrderSkeleton";
 import { Order, useOrderStore } from "@/store/orderStore";
 
@@ -127,13 +128,11 @@ const EmptyOrdersState = ({ onShopPress }: { onShopPress: () => void }) => (
         width: 140,
         height: 140,
         borderRadius: 44,
-        // backgroundColor: "#FFF0F4",
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 20,
       }}
     >
-      {/* <Ionicons name="bag-outline" size={40} color="#F87387" /> */}
       <Text style={{ fontSize: 100, fontWeight: "700", color: "#F87387" }}>
         🛍️
       </Text>
@@ -177,17 +176,42 @@ const EmptyOrdersState = ({ onShopPress }: { onShopPress: () => void }) => (
   </View>
 );
 
+// ──────────────────────────── SHARED HEADER CONFIG ─────────────────────────────
+// Extracted so it can be passed to Stack.Screen in every render path without
+// duplicating JSX. Stack.Screen is always rendered first (never inside a
+// conditional) so the header is always visible regardless of which body
+// state (loading / logged-out / orders list) is active below it.
+const useHeaderOptions = (router: ReturnType<typeof useRouter>) => ({
+  headerTitle: "My Orders",
+  headerTitleStyle: {
+    fontSize: 17,
+    fontWeight: "700" as const,
+    color: "#1A1A1A",
+  },
+  headerShadowVisible: false,
+  headerStyle: { backgroundColor: "#fff7f8" },
+  headerLeft: () => (
+    <Pressable onPress={() => router.back()} hitSlop={8}>
+      <EvilIcons name="chevron-left" size={34} color="#111" />
+    </Pressable>
+  ),
+});
+
 //-------------------------- Main Screen ---------------------------------------
 export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const orders = useOrderStore((state) => state.orders);
+  const user = auth.currentUser;
+  const headerOptions = useHeaderOptions(router);
 
   useEffect(() => {
     const user = auth.currentUser;
-
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const q = collection(db, "users", user.uid, "orders");
     const unsub = onSnapshot(q, (snapshot) => {
@@ -202,47 +226,105 @@ export default function OrdersScreen() {
     return unsub;
   }, []);
 
-  if (loading) return <OrdersSkeleton />;
+  // ─── Body ─────────────────────────────────────────────────────────────────
+  // Determined separately so Stack.Screen is always rendered at the top of
+  // the return statement without duplication.
+  const renderBody = () => {
+    // Loading state — skeleton fills the body below the fixed header
+    if (loading) {
+      return (
+        <View style={{ flex: 1 }}>
+          <OrdersSkeleton />
+        </View>
+      );
+    }
+
+    // Logged-out state — prompt sits below the fixed header
+    if (!user) {
+      return (
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 30,
+            backgroundColor: "#fff",
+            paddingBottom: insets.bottom,
+          }}
+        >
+          <Ionicons name="cloud-offline-outline" size={50} color="#F87387" />
+
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "700",
+              marginTop: 16,
+              color: "#222",
+            }}
+          >
+            You are not logged in
+          </Text>
+
+          <Text
+            style={{
+              marginTop: 8,
+              textAlign: "center",
+              color: "#888",
+            }}
+          >
+            Please log in to view your orders.
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => router.push("/Account")}
+            style={{
+              marginTop: 24,
+              backgroundColor: "#F87387",
+              paddingHorizontal: 24,
+              paddingVertical: 8,
+              borderRadius: 4,
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700" }}>Log In</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Empty orders state
+    if (orders.length === 0) {
+      return <EmptyOrdersState onShopPress={() => router.push("./")} />;
+    }
+
+    // Orders list
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#fff",
+        }}
+      >
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        >
+          {orders.map((order) => (
+            <OrderRow
+              key={order.orderId}
+              order={order}
+              onPress={() => router.push(`./order-details/${order.orderId}`)}
+            />
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerTitle: "My Orders",
-          headerTitleStyle: {
-            fontSize: 17,
-            fontWeight: "700",
-            color: "#1A1A1A",
-          },
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: "#fff7f8" },
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} hitSlop={8}>
-              <EvilIcons name="chevron-left" size={34} color="#111" />
-            </Pressable>
-          ),
-        }}
-      />
-      {orders.length === 0 ? (
-        <EmptyOrdersState onShopPress={() => router.push("./")} />
-      ) : (
-        <View style={{ flex: 1, backgroundColor: "#fff" }}>
-          <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-          {/* List */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-          >
-            {orders.map((order) => (
-              <OrderRow
-                key={order.orderId}
-                order={order}
-                onPress={() => router.push(`./order-details/${order.orderId}`)}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      )}
+      <Stack.Screen options={headerOptions} />
+      {renderBody()}
     </>
   );
 }

@@ -155,41 +155,64 @@ export default function WalletScreen() {
         }}
       />
 
-      <View style={{ flex: 1, backgroundColor: "#FFF7F8" }}>
+      <View style={{ flex: 1, backgroundColor: "#fff" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFF7F8" />
+        {loading ? (
+          <WalletSkeleton />
+        ) : error ? (
+          <View
+            style={{
+              flexGrow: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              paddingHorizontal: 30,
+              backgroundColor: "#fff",
+            }}
+          >
+            <Ionicons name="cloud-offline-outline" size={50} color="#F87387" />
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingTop: 8,
-            paddingBottom: insets.bottom + 110,
-          }}
-        >
-          {loading && <WalletSkeleton />}
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                marginTop: 16,
+                color: "#222",
+              }}
+            >
+              You are not logged in
+            </Text>
 
-          {!loading && error && (
-            <View style={{ alignItems: "center", marginTop: 48, gap: 12 }}>
-              <Ionicons name="cloud-offline-outline" size={40} color="#ddd" />
-              <Text style={{ fontSize: 13, color: "#aaa" }}>{error}</Text>
-              <TouchableOpacity
-                onPress={fetchWallet}
-                style={{
-                  backgroundColor: "#E85D75",
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                }}
-              >
-                <Text
-                  style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}
-                >
-                  Retry
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            <Text
+              style={{
+                marginTop: 8,
+                textAlign: "center",
+                color: "#888",
+              }}
+            >
+              Please log in to view your orders.
+            </Text>
 
-          {!loading && !error && (
+            <TouchableOpacity
+              onPress={() => router.push("/Account")}
+              style={{
+                marginTop: 24,
+                backgroundColor: "#F87387",
+                paddingHorizontal: 24,
+                paddingVertical: 8,
+                borderRadius: 4,
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700" }}>Log In</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingTop: 8,
+              paddingBottom: insets.bottom + 110,
+            }}
+          >
             <View style={{ paddingHorizontal: 16, gap: 10 }}>
               {/* ── 1. Balance Card ── */}
               <View
@@ -572,8 +595,8 @@ export default function WalletScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          )}
-        </ScrollView>
+          </ScrollView>
+        )}
       </View>
     </>
   );

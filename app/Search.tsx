@@ -75,7 +75,7 @@ export default function SearchPage() {
       try {
         setLoading(true);
         const res = await fetch(
-          `http://${process.env.EXPO_PUBLIC_NETWORK_ADDRESS}:3000/api/products/search?q=${encodeURIComponent(query)}`,
+          `${process.env.EXPO_PUBLIC_API_URL}/api/products/search?q=${encodeURIComponent(query)}`,
         );
         const data: Product[] = await res.json();
         setResults(data);

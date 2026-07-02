@@ -93,6 +93,8 @@ export default function ProductPage() {
   const [offersVisible, setOffersVisible] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastValue, setToastValue] = useState("");
+  const [toastPathname, setToastPathname] = useState("");
+  const [toastLinkText, setToastLinkText] = useState("");
   const [sizeModalVisible, setSizeModalVisible] = useState(false);
   const [pendingAction, setPendingAction] = useState<"cart" | "buy" | null>(
     null,
@@ -127,6 +129,8 @@ export default function ProductPage() {
       const user = auth.currentUser;
       if (!user) {
         setToastValue("Please login first");
+        setToastPathname("/Account");
+        setToastLinkText("Login");
         setShowToast(true);
         setTimeout(() => setShowToast(false), 1500);
         return;
@@ -161,6 +165,8 @@ export default function ProductPage() {
           },
         );
         setToastValue("Added to wishlist");
+        setToastPathname("/Wishlist");
+        setToastLinkText("Go to wishlist");
       }
       setShowToast(true);
       setTimeout(() => setShowToast(false), 1500);
@@ -206,37 +212,57 @@ export default function ProductPage() {
           (option) => option.name === "Size" && option.value === selectedSize,
         ),
       );
-
       if (!selectedSize) {
         setPendingAction("cart");
         setSizeModalVisible(true);
         return;
       }
 
-      setLoadingCart(true);
       const user = auth.currentUser;
       if (!user) {
-        setToastValue("Please login first");
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 1500);
+        setLoadingCart(true);
+        const existing = await AsyncStorage.getItem("cartItems");
+        let items = existing ? JSON.parse(existing) : [];
+        const existingIndex = items.findIndex(
+          (item: any) => item.id === product.id && item.size === selectedSize,
+        );
+        if (existingIndex > -1) {
+          setToastValue("Item already in cart");
+          setToastLinkText("Go to Bag");
+          setToastPathname("/Cart");
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 1500);
+        } else {
+          items.unshift({
+            id: product.id,
+            handle: product.handle,
+            title: product.title,
+            image: product.images?.[0]?.url,
+            price: product.price,
+            compareAtPrice: product.compareAtPrice,
+            discountPercent: product.discountPercent,
+            quantity: 1,
+            size: selectedSize,
+          });
+        }
+        await AsyncStorage.setItem("cartItems", JSON.stringify(items));
         setLoadingCart(false);
-        return;
+      } else {
+        const cleanId = product.id.split("/").pop();
+        await setDoc(doc(db, "users", user.uid, "cart", cleanId as string), {
+          id: product.id,
+          handle: product.handle,
+          variantId: selectedVariant?.id,
+          title: product.title,
+          image: product.images?.[0]?.url,
+          price: product.price,
+          compareAtPrice: product.compareAtPrice,
+          discountPercent: product.discountPercent,
+          quantity: 1,
+          size: selectedSize,
+          createdAt: new Date(),
+        });
       }
-
-      const cleanId = product.id.split("/").pop();
-      await setDoc(doc(db, "users", user.uid, "cart", cleanId as string), {
-        id: product.id,
-        handle: product.handle,
-        variantId: selectedVariant?.id,
-        title: product.title,
-        image: product.images?.[0]?.url,
-        price: product.price,
-        compareAtPrice: product.compareAtPrice,
-        discountPercent: product.discountPercent,
-        quantity: 1,
-        size: selectedSize,
-        createdAt: new Date(),
-      });
 
       addCartItem({
         id: product.id,
@@ -255,6 +281,8 @@ export default function ProductPage() {
 
       setLoadingCart(false);
       setToastValue("Item added to cart");
+      setToastLinkText("Go to Bag");
+      setToastPathname("/Cart");
       setShowToast(true);
       setTimeout(() => setShowToast(false), 1500);
     } catch (error) {
@@ -272,7 +300,6 @@ export default function ProductPage() {
         setSizeModalVisible(true);
         return;
       }
-
       setLoadingCart(true);
       const user = auth.currentUser;
 
@@ -319,6 +346,8 @@ export default function ProductPage() {
       router.push("/Cart");
     } catch (error) {
       console.log(error);
+    } finally {
+      setLoadingCart(false);
     }
   };
 
@@ -327,10 +356,9 @@ export default function ProductPage() {
     const fetchProduct = async () => {
       try {
         const res = await fetch(
-          `http://${process.env.EXPO_PUBLIC_NETWORK_ADDRESS}:3000/api/products/product/${handle}`,
+          `${process.env.EXPO_PUBLIC_API_URL}/api/products/product/${handle}`,
         );
         const data = await res.json();
-
         await saveRecentlyViewed(data);
         setProduct(data);
 
@@ -339,7 +367,7 @@ export default function ProductPage() {
 
         const category = handle?.toString().includes("women") ? "women" : "men";
         const exploreRes = await fetch(
-          `http://${process.env.EXPO_PUBLIC_NETWORK_ADDRESS}:3000/api/products/${category}`,
+          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${category}`,
         );
         const exploreData = await exploreRes.json();
         const filtered = exploreData.filter(
@@ -669,7 +697,12 @@ export default function ProductPage() {
       </Modal>
 
       {/* ── Toast ───────────────────────────────────────────────────────────── */}
-      <SuccessToast visible={showToast} text={toastValue} />
+      <SuccessToast
+        visible={showToast}
+        text={toastValue}
+        pathname={toastPathname}
+        linkText={toastLinkText}
+      />
 
       {/* ── Bottom CTA bar ───────────────────────────────────────────────────── */}
       {product && (

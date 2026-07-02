@@ -20,12 +20,15 @@ import {
   FlatList,
   StatusBar,
   StyleSheet,
+  TouchableOpacity,
 } from "react-native";
 import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { auth, db } from "@/firebaseConfig";
 import { useCartStore } from "@/store/cartStore";
 import CartSkeleton from "@/components/CartSkeleton";
 import { useLocationStore } from "@/store/useLocationStore";
+import LoginModel from "@/components/modal/LoginModel";
+import SignUpModel from "@/components/modal/SignUpModel";
 
 type CartItem = {
   id: string;
@@ -659,24 +662,53 @@ const CheckoutBar = React.memo(
 
 // ─── EMPTY STATE ──────────────────────────────────────────────
 const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
-  <View style={S.emptyWrap}>
-    <View style={S.emptyIcon}>
-      <Feather name="shopping-bag" size={36} color={C.pink} />
-    </View>
-    <Text style={S.emptyTitle}>Your bag is empty</Text>
-    <Text style={S.emptyBody}>
-      Looks like you haven't added anything yet.{"\n"}
-      Explore styles made for you.
-    </Text>
-    <Pressable
-      onPress={onShop}
-      style={({ pressed }) => [
-        S.emptyBtn,
-        { backgroundColor: pressed ? C.pinkDeep : C.pink },
-      ]}
+  <View
+    style={{
+      flexGrow: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 30,
+      backgroundColor: "#fff",
+    }}
+  >
+    {/* <Ionicons name="cloud-offline-outline" size={50} color="#F87387" /> */}
+    <MaterialCommunityIcons name="cart-outline" size={50} color="#F87387" />
+    <Text
+      style={{
+        fontSize: 18,
+        fontWeight: "700",
+        marginTop: 16,
+        color: "#222",
+      }}
     >
-      <Text style={S.emptyBtnTxt}>Continue Shopping</Text>
-    </Pressable>
+      Your bag is empty
+    </Text>
+
+    <Text
+      style={{
+        marginTop: 8,
+        textAlign: "center",
+        color: "#888",
+      }}
+    >
+      Looks like you haven't added anything yet.{"\n"}
+      Explore styles made for you
+    </Text>
+
+    <TouchableOpacity
+      onPress={onShop}
+      style={{
+        marginTop: 24,
+        backgroundColor: "#F87387",
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        borderRadius: 4,
+      }}
+    >
+      <Text style={{ color: "#fff", fontWeight: "700" }}>
+        Continue Shopping
+      </Text>
+    </TouchableOpacity>
   </View>
 ));
 
@@ -687,6 +719,8 @@ export default function Cart() {
   const [pinCode, setPinCode] = useState("");
   const [wishlist, setWishlist] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [openLogin, setOpenLogin] = useState(false);
+  const [openSignup, setOpenSignup] = useState(false);
   const setCartItems = useCartStore((s) => s.setCartItems);
   const cartItems = useCartStore((s) => s.cartItems);
 
@@ -723,6 +757,7 @@ export default function Cart() {
         } else {
           const raw = await AsyncStorage.getItem("cartItems");
           setCartItems(raw ? JSON.parse(raw) : []);
+          setLoading(false);
         }
       } catch (e) {
         console.error(e);
@@ -993,16 +1028,13 @@ export default function Cart() {
               // onCheckout={() => router.push("/Delivery-Address")}
               onCheckout={async () => {
                 try {
+                  if (!auth.currentUser) {
+                    setOpenLogin(true);
+                    return;
+                  }
                   const res = await createCheckoutCart(
                     cartItems,
                     auth.currentUser,
-                  );
-                  console.log(
-                    JSON.stringify(
-                      res?.data?.cartCreate?.cart?.attributes,
-                      null,
-                      2,
-                    ),
                   );
                   const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
                   if (!checkoutUrl) {
@@ -1076,6 +1108,12 @@ export default function Cart() {
                 </View>
               </KeyboardAvoidingView>
             </Modal>
+            <LoginModel
+              openLogin={openLogin}
+              setOpenLogin={setOpenLogin}
+              openSignup={setOpenSignup}
+            />
+            <SignUpModel openModal={openSignup} setOpenModal={setOpenSignup} />
           </>
         )}
       </View>
