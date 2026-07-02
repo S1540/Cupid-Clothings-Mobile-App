@@ -102,7 +102,7 @@ export default function HomeSkeleton() {
       </View>
 
       {/* FILTER BAR */}
-      <View
+      {/* <View
         style={{
           flexDirection: "row",
           justifyContent: "space-between",
@@ -112,13 +112,13 @@ export default function HomeSkeleton() {
       >
         <SkeletonBox height={48} width={130} radius={12} />
         <SkeletonBox height={48} width={130} radius={12} />
-      </View>
+      </View> */}
 
       {/* HERO BANNER */}
       <SkeletonBox
-        height={200}
-        width={width - 32}
-        radius={20}
+        height={420}
+        width={width}
+        radius={0}
         style={{
           alignSelf: "center",
           marginTop: 18,
@@ -134,8 +134,8 @@ export default function HomeSkeleton() {
           marginTop: 14,
         }}
       >
-        <SkeletonBox height={8} width={8} radius={99} />
-        <SkeletonBox height={8} width={28} radius={99} />
+        <SkeletonBox height={4} width={8} radius={99} />
+        <SkeletonBox height={4} width={28} radius={99} />
       </View>
 
       {/* SHOP BY CATEGORY */}

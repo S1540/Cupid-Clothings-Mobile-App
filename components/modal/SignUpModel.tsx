@@ -22,7 +22,7 @@ import {
   where,
 } from "firebase/firestore";
 import { Feather } from "@expo/vector-icons";
-import CircleLoader from "../CircleLoader";
+import CircleLoader from "../ui/CircleLoader";
 
 type SignupModalProps = {
   openModal: boolean;
@@ -62,7 +62,6 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
         referrerDoc = refSnap.docs[0];
       }
       const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
       const generatedReferralCode = Array.from({ length: 7 }, () =>
         characters.charAt(Math.floor(Math.random() * characters.length)),
       ).join("");

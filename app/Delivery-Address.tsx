@@ -35,7 +35,7 @@ import {
   addDoc,
   getDoc,
 } from "firebase/firestore";
-import CircleLoader from "@/components/CircleLoader";
+import CircleLoader from "@/components/ui/CircleLoader";
 
 // ─── Tokens -----------------------------------
 const C = {

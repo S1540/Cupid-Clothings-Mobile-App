@@ -144,15 +144,15 @@ const updateTrackingStatus = async (payload) => {
           const referrerData = referrerSnap.docs[0].data();
 
           await referrerRef.update({
-            walletBalance: (referrerData.walletBalance || 0) + 171,
-            totalEarnings: (referrerData.totalEarnings || 0) + 171,
-            referralEarnings: (referrerData.referralEarnings || 0) + 171,
+            walletBalance: (referrerData.walletBalance || 0) + 79,
+            totalEarnings: (referrerData.totalEarnings || 0) + 79,
+            referralEarnings: (referrerData.referralEarnings || 0) + 79,
             lastRewardAt: new Date(),
           });
 
           await userRef.update({
-            walletBalance: (userData.walletBalance || 0) + 71,
-            totalEarnings: (userData.totalEarnings || 0) + 71,
+            walletBalance: (userData.walletBalance || 0) + 79,
+            totalEarnings: (userData.totalEarnings || 0) + 79,
             rewardGiven: true,
             lastRewardAt: new Date(),
           });

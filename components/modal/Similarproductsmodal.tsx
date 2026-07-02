@@ -1,3 +1,5 @@
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, {
   useCallback,
   useMemo,
@@ -14,15 +16,13 @@ import {
   FlatList,
   TouchableOpacity,
   Animated,
-  Dimensions,
   BackHandler,
   Pressable,
   ListRenderItemInfo,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView, Edge } from "react-native-safe-area-context";
-// import { fetchRecommendedProducts } from "../../backend/services/shopifyService";
-
 /**
  * ------------------------------------------------------------------
  * Types
@@ -47,18 +47,38 @@ interface SimilarProductsModalProps {
   onClose: () => void;
 }
 
-/**
- * ------------------------------------------------------------------
- * Constants / Dummy Data
- * ------------------------------------------------------------------
- */
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-
-const MODAL_HEIGHT = SCREEN_HEIGHT * 0.48;
-const CARD_WIDTH = SCREEN_WIDTH * 0.43;
 const CARD_SPACING = 12;
+const LIST_HORIZONTAL_PADDING = 16; // matches styles.listContent.paddingHorizontal
 const ANIMATION_DURATION = 300;
 const SAFE_AREA_EDGES: Edge[] = ["bottom"];
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+function getCardWidth(screenWidth: number) {
+  const cardsFullyVisible =
+    screenWidth >= 1024 ? 4 : screenWidth >= 768 ? 3 : 2;
+
+  // Subtle edge peek on phones (~18-22% of a card), a bit more generous on
+  // tablets where there's room to spare. Tune these to taste.
+  const peekFraction =
+    screenWidth >= 1024
+      ? 0.5
+      : screenWidth >= 768
+        ? 0.4
+        : screenWidth >= 400
+          ? 0.22
+          : 0.18;
+
+  const availableWidth = screenWidth - LIST_HORIZONTAL_PADDING * 2;
+  const totalGaps = cardsFullyVisible;
+  const totalCardUnits = cardsFullyVisible + peekFraction;
+  const rawWidth = (availableWidth - totalGaps * CARD_SPACING) / totalCardUnits;
+  return clamp(rawWidth, 130, 220);
+}
+function getModalHeight(screenHeight: number) {
+  return clamp(screenHeight * 0.47, 320, screenHeight * 0.85);
+}
+
 const fetchRecommendedProducts = async (productId: string) => {
   const response = await fetch(
     `${process.env.EXPO_PUBLIC_API_URL}/api/products/recommendations/${encodeURIComponent(productId)}`,
@@ -66,29 +86,27 @@ const fetchRecommendedProducts = async (productId: string) => {
   );
 
   if (!response.ok) {
-    console.log("Status:", response.status);
     const text = await response.text();
     throw new Error(text);
-    console.log("Body:", text);
   }
-
   return response.json();
 };
 
-/**
- * ------------------------------------------------------------------
- * Product Card (memoized)
- * ------------------------------------------------------------------
- */
+// Prodcut memorization to avoid unnecessary re-renders
 interface ProductCardProps {
   product: Product;
   isLast: boolean;
+  cardWidth: number;
+  onPress: () => void;
 }
 
 const ProductCard: React.FC<ProductCardProps> = React.memo(
-  ({ product, isLast }) => {
+  ({ product, isLast, cardWidth, onPress }) => {
     return (
-      <View style={[styles.card, isLast && styles.cardLast]}>
+      <Pressable
+        onPress={onPress}
+        style={[styles.card, { width: cardWidth }, isLast && styles.cardLast]}
+      >
         <View style={styles.imageWrapper}>
           <Image
             source={{ uri: product.images[0]?.url }}
@@ -101,22 +119,14 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.wishlistIcon}>♡</Text>
+            {/* <Text style={styles.wishlistIcon}>♡</Text> */}
+            <Ionicons
+              name="heart-outline"
+              size={18}
+              color="black"
+              opacity={0.5}
+            />
           </TouchableOpacity>
-
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountBadgeText}>
-              {product.discountPercent}
-            </Text>
-          </View>
-
-          {/* {product.rating ? (
-            <View style={styles.ratingBadge}>
-              <Text style={styles.ratingBadgeText}>
-                ★ {product.rating.toFixed(1)}
-              </Text>
-            </View>
-          ) : null} */}
         </View>
 
         <View style={styles.cardBody}>
@@ -125,11 +135,15 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(
           </Text>
 
           <View style={styles.priceRow}>
-            <Text style={styles.price}>{product.price}</Text>
-            <Text style={styles.comparePrice}>{product.compareAtPrice}</Text>
+            <Text style={styles.price}> ₹{product.price}</Text>
+            <Text style={styles.comparePrice}> ₹{product.compareAtPrice}</Text>
+            <Text style={styles.discountBadgeText}>
+              {product.discountPercent}% off
+            </Text>
+            {/* <View style={styles.discountBadge}></View> */}
           </View>
         </View>
-      </View>
+      </Pressable>
     );
   },
 );
@@ -146,12 +160,20 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
   product,
   onClose,
 }) => {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const CARD_WIDTH = useMemo(() => getCardWidth(screenWidth), [screenWidth]);
+  const MODAL_HEIGHT = useMemo(
+    () => getModalHeight(screenHeight),
+    [screenHeight],
+  );
+
   const slideAnim = useRef(new Animated.Value(MODAL_HEIGHT)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const [isRendered, setIsRendered] = React.useState(visible);
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const router = useRouter();
 
   /**
    * Drive the open/close animation whenever `visible` changes.
@@ -189,7 +211,7 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
         }
       });
     }
-  }, [visible, overlayAnim, slideAnim]);
+  }, [visible, overlayAnim, slideAnim, MODAL_HEIGHT]);
   // fetch product data according product id or show in similar products modal //
   useEffect(() => {
     if (!visible || !product?.id) return;
@@ -199,10 +221,7 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
       try {
         setLoading(true);
         setError(false);
-        console.log("Calling fetchRecommendedProducts...");
-        console.log("Selected Product ID:", product.id);
         const data = await fetchRecommendedProducts(product.id || "");
-        console.log("Recommended Products:", data);
 
         if (mounted) {
           setRecommendedProducts(data);
@@ -256,9 +275,15 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
       <ProductCard
         product={item}
         isLast={index === recommendedProducts.length - 1}
+        cardWidth={CARD_WIDTH}
+        onPress={() => {
+          setIsRendered(false);
+          router.push(`/product/${item.handle}`);
+          return;
+        }}
       />
     ),
-    [recommendedProducts.length],
+    [recommendedProducts.length, CARD_WIDTH],
   );
 
   const getItemLayout = useCallback(
@@ -267,7 +292,7 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
       offset: (CARD_WIDTH + CARD_SPACING) * index,
       index,
     }),
-    [],
+    [CARD_WIDTH],
   );
 
   const listData = recommendedProducts;
@@ -300,6 +325,10 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
       <Animated.View
         style={[
           styles.sheetContainer,
+          // FIX: height is now applied inline from the live, clamped
+          // MODAL_HEIGHT instead of a static value baked into the
+          // module-level StyleSheet, so it responds to rotation/resizing.
+          { height: MODAL_HEIGHT },
           {
             transform: [{ translateY: slideAnim }],
           },
@@ -333,6 +362,8 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
             showsHorizontalScrollIndicator={false}
             snapToAlignment="start"
             decelerationRate="fast"
+            // FIX: snap interval now tracks the live CARD_WIDTH instead of a
+            // frozen constant, so snapping stays accurate after a resize.
             snapToInterval={CARD_WIDTH + CARD_SPACING}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
@@ -366,7 +397,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: MODAL_HEIGHT,
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -430,11 +460,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: LIST_HORIZONTAL_PADDING,
     paddingBottom: 20,
+    alignItems: "flex-start",
   },
   card: {
-    width: CARD_WIDTH,
     marginRight: CARD_SPACING,
     borderRadius: 6,
     borderWidth: 1,
@@ -449,7 +479,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
       },
       android: {
-        elevation: 3,
+        elevation: 0.5,
       },
     }),
   },
@@ -458,7 +488,7 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     width: "100%",
-    aspectRatio: 4 / 4,
+    aspectRatio: 4 / 5, // Scales proportionally with whatever width the card is given — no change needed here.
     position: "relative",
     backgroundColor: "#FAFAFA",
   },
@@ -486,7 +516,7 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
       },
       android: {
-        elevation: 2,
+        elevation: 0.5,
       },
     }),
   },
@@ -494,20 +524,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#333333",
   },
-  discountBadge: {
-    position: "absolute",
-    bottom: 8,
-    left: 8,
-    backgroundColor: "#E63946",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  discountBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
+  //   discountBadge: {
+  //     position: "absolute",
+  //     bottom: 8,
+  //     left: 8,
+  //     backgroundColor: "#E63946",
+  //     paddingHorizontal: 6,
+  //     paddingVertical: 3,
+  //     borderRadius: 4,
+  //   },
+  //   discountBadgeText: {
+  //     fontSize: 10,
+  //     fontWeight: "700",
+  //     color: "#FFFFFF",
+  //   },
   ratingBadge: {
     position: "absolute",
     top: 8,
@@ -525,14 +555,20 @@ const styles = StyleSheet.create({
   cardBody: {
     paddingHorizontal: 10,
     paddingTop: 10,
-    paddingBottom: 12,
+    // FIX: a little extra breathing room at the bottom of the card, as
+    // requested (was 12).
+    paddingBottom: 18,
   },
   title: {
     fontSize: 13,
     fontWeight: "500",
     color: "#1A1A1A",
     lineHeight: 17,
-    height: 34,
+    // NOTE: fixed `height: 34` removed on purpose — it forced every card's
+    // title block to occupy 2 lines' worth of space even when the actual
+    // title only wrapped to 1 line. `numberOfLines={2}` (set on the <Text>
+    // in ProductCard) still caps it at a max of 2 lines; the box itself now
+    // just takes however much height that real content needs.
   },
   priceRow: {
     flexDirection: "row",
@@ -549,5 +585,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#9E9E9E",
     textDecorationLine: "line-through",
+  },
+  discountBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#16990c",
   },
 });

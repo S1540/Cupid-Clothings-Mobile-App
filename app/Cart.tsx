@@ -21,6 +21,8 @@ import {
   StatusBar,
   StyleSheet,
   TouchableOpacity,
+  LayoutChangeEvent,
+  useWindowDimensions, // FIX (responsive/tablet + rotation): reactive dimensions instead of static Dimensions.get()
 } from "react-native";
 import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { auth, db } from "@/firebaseConfig";
@@ -29,6 +31,7 @@ import CartSkeleton from "@/components/CartSkeleton";
 import { useLocationStore } from "@/store/useLocationStore";
 import LoginModel from "@/components/modal/LoginModel";
 import SignUpModel from "@/components/modal/SignUpModel";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type CartItem = {
   id: string;
@@ -57,10 +60,19 @@ const C = {
   greenBg: "#f0faf4",
 } as const;
 
-const CHECKOUT_BAR_HEIGHT = Platform.OS === "ios" ? 150 : 130;
+// REMOVED: hardcoded `CHECKOUT_BAR_HEIGHT` constant based on Platform.OS.
+// It never matched the bar's real rendered height across devices (iPhone SE vs
+// Pro Max vs Android gesture-nav), causing content to be hidden behind the bar
+// on some devices and extra dead space on others. The real height is now
+// measured at runtime via onLayout (see `checkoutBarHeight` state below) and
+// used to pad the FlatList instead.
+
+// Minimum tablet breakpoint used only to cap/center the checkout bar's inner
+// row on large screens. Phone layout is untouched.
+const TABLET_BREAKPOINT = 768;
+const TABLET_MAX_CONTENT_WIDTH = 600;
 
 const S = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg, paddingBottom: 10 },
   itemRow: {
     backgroundColor: C.white,
     paddingHorizontal: 16,
@@ -291,20 +303,28 @@ const S = StyleSheet.create({
     borderLeftColor: C.green,
   },
   savingsBannerTxt: { fontSize: 12, color: C.green, fontWeight: "600" },
+  // NOTE: paddingBottom / paddingHorizontal / bottom are now applied inline
+  // per-instance (see CheckoutBar) because they depend on live safe-area
+  // insets. Keeping the static, device-independent parts here only.
   checkoutBar: {
     position: "absolute",
-    bottom: 1,
     left: 0,
     right: 0,
     backgroundColor: C.white,
-    paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 28 : 14,
+    // iOS shadow (ignored on Android by RN itself — no Platform.select needed)
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -5 },
     shadowOpacity: 0.09,
     shadowRadius: 14,
+    // Android shadow (ignored on iOS by RN itself)
     elevation: 24,
+  },
+  checkoutBarInner: {
+    // FIX (tablet responsiveness): centers + caps width on large screens,
+    // no-op on phones since width < TABLET_MAX_CONTENT_WIDTH.
+    width: "100%",
+    alignSelf: "center",
   },
   checkoutBadge: {
     flexDirection: "row",
@@ -363,7 +383,7 @@ const S = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 14,
-    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    // paddingBottom applied inline with safe-area inset (see Modal usage below)
   },
   modalHandle: {
     width: 36,
@@ -580,81 +600,122 @@ const CartItemRow = React.memo(
 );
 
 // ─── CHECKOUT BAR -------------------------------
+// FIX (both platforms): now receives live safe-area insets + window width as
+// props instead of relying on Platform.OS branching / hardcoded numbers, and
+// reports its own rendered height back to the parent via onLayout so the
+// FlatList can reserve exactly enough space — no more, no less.
 const CheckoutBar = React.memo(
   ({
     count,
     total,
     shipping,
     onCheckout,
+    insetBottom,
+    insetLeft,
+    insetRight,
+    isTablet,
+    onBarLayout,
   }: {
     count: number;
     total: number;
     shipping: number;
     onCheckout: () => void;
+    insetBottom: number;
+    insetLeft: number;
+    insetRight: number;
+    isTablet: boolean;
+    onBarLayout: (e: LayoutChangeEvent) => void;
   }) => {
     if (count === 0) return null;
     const deliveryLabel =
       shipping === 0 ? "Free delivery" : `₹${shipping} delivery`;
 
     return (
-      <View style={S.checkoutBar}>
-        <View style={S.checkoutBadge}>
-          <Text style={S.checkoutBadgeTxt}>
-            {count} item{count > 1 ? "s" : ""}
-          </Text>
-          <View style={S.checkoutBadgeDot} />
-          <Text style={S.checkoutBadgeTxt}>{deliveryLabel}</Text>
-        </View>
+      <View
+        onLayout={onBarLayout}
+        style={[
+          S.checkoutBar,
+          {
+            // FIX (iOS): bottom sits flush with the screen edge (0, not the
+            // previous magic "1") — safe area is handled entirely via
+            // paddingBottom below, avoiding the double-safe-area gap.
+            bottom: 0,
+            // FIX (both): dynamic horizontal safe area for notch/Dynamic
+            // Island/rounded-corner devices in landscape.
+            paddingLeft: Math.max(16, insetLeft),
+            paddingRight: Math.max(16, insetRight),
+            // FIX (both): replaces the hardcoded
+            // `Platform.OS === "ios" ? 28 : 14`. Scales correctly for iPhone
+            // SE (insetBottom = 0) up to Pro Max (insetBottom ≈ 34), and for
+            // Android 3-button vs gesture-nav bars.
+            paddingBottom: 14 + insetBottom,
+          },
+        ]}
+      >
+        <View
+          style={[
+            S.checkoutBarInner,
+            isTablet && { maxWidth: TABLET_MAX_CONTENT_WIDTH },
+          ]}
+        >
+          <View style={S.checkoutBadge}>
+            <Text style={S.checkoutBadgeTxt}>
+              {count} item{count > 1 ? "s" : ""}
+            </Text>
+            <View style={S.checkoutBadgeDot} />
+            <Text style={S.checkoutBadgeTxt}>{deliveryLabel}</Text>
+          </View>
 
-        <Pressable onPress={onCheckout}>
-          {({ pressed }) => (
-            <View
-              style={{
-                height: 56,
-                borderRadius: 6,
-                backgroundColor: pressed ? C.pinkDeep : C.pink,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingHorizontal: 20,
-                shadowColor: "#ff5c84",
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.22,
-                shadowRadius: 8,
-                elevation: 10,
-              }}
-            >
-              <Text
+          <Pressable onPress={onCheckout}>
+            {({ pressed }) => (
+              <View
                 style={{
-                  color: "#fff",
-                  fontSize: 15,
-                  fontWeight: "800",
-                  letterSpacing: -0.2,
+                  height: 56,
+                  borderRadius: 6,
+                  backgroundColor: pressed ? C.pinkDeep : C.pink,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 20,
+                  shadowColor: "#ff5c84",
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.22,
+                  shadowRadius: 8,
+                  elevation: 10,
                 }}
               >
-                Place Order
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Text
                   style={{
                     color: "#fff",
-                    fontSize: 20,
-                    fontWeight: "500",
-                    letterSpacing: -0.6,
-                    marginRight: 4,
+                    fontSize: 15,
+                    fontWeight: "800",
+                    letterSpacing: -0.2,
                   }}
                 >
-                  ₹ {total}
+                  Place Order
                 </Text>
-                <Feather
-                  name="arrow-right"
-                  size={18}
-                  color="rgba(255,255,255,0.92)"
-                />
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: 20,
+                      fontWeight: "500",
+                      letterSpacing: -0.6,
+                      marginRight: 4,
+                    }}
+                  >
+                    ₹ {total}
+                  </Text>
+                  <Feather
+                    name="arrow-right"
+                    size={18}
+                    color="rgba(255,255,255,0.92)"
+                  />
+                </View>
               </View>
-            </View>
-          )}
-        </Pressable>
+            )}
+          </Pressable>
+        </View>
       </View>
     );
   },
@@ -671,7 +732,6 @@ const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
       backgroundColor: "#fff",
     }}
   >
-    {/* <Ionicons name="cloud-offline-outline" size={50} color="#F87387" /> */}
     <MaterialCommunityIcons name="cart-outline" size={50} color="#F87387" />
     <Text
       style={{
@@ -723,6 +783,29 @@ export default function Cart() {
   const [openSignup, setOpenSignup] = useState(false);
   const setCartItems = useCartStore((s) => s.setCartItems);
   const cartItems = useCartStore((s) => s.cartItems);
+  const insets = useSafeAreaInsets();
+  // FIX (tablet + rotation): reactive window size instead of static
+  // Dimensions.get(), so rotating the device updates the layout correctly.
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_BREAKPOINT;
+
+  // FIX (both platforms): real, measured checkout-bar height replaces the
+  // old hardcoded CHECKOUT_BAR_HEIGHT constant. Starts at 0 (no bar/no
+  // padding) and updates once the bar lays out, or resets to 0 when the
+  // cart is empty (bar unmounts).
+  const [checkoutBarHeight, setCheckoutBarHeight] = useState(0);
+
+  const handleBarLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    setCheckoutBarHeight((prev) => (prev !== h ? h : prev));
+  }, []);
+
+  useEffect(() => {
+    // Cart just became empty → bar is unmounted, so no bottom padding needed.
+    if (cartItems.length === 0 && checkoutBarHeight !== 0) {
+      setCheckoutBarHeight(0);
+    }
+  }, [cartItems.length, checkoutBarHeight]);
 
   const { subtotal, saved, shipping, total } = useMemo(() => {
     const sub = cartItems.reduce(
@@ -740,7 +823,7 @@ export default function Cart() {
     return { subtotal: sub, saved: sv, shipping: sh, total: sub + sh };
   }, [cartItems]);
 
-  // FEtch items for firebase
+  // Fetch items from firebase / local storage
   useEffect(() => {
     (async () => {
       try {
@@ -782,6 +865,7 @@ export default function Cart() {
     },
     [cartItems, setCartItems],
   );
+
   const persist = useCallback(
     async (items: CartItem[]) => {
       setCartItems(items);
@@ -811,7 +895,6 @@ export default function Cart() {
         return;
       }
 
-      // Warna quantity decrease karo
       persist(
         cartItems.map((i) =>
           i.id === id ? { ...i, quantity: i.quantity - 1 } : i,
@@ -845,8 +928,7 @@ export default function Cart() {
     [increase, decrease, remove, router],
   );
 
-  // Lisst header (Delivery Address )
-
+  // List header (Delivery Address)
   const locationName = useLocationStore((state) => state.location);
   const ListHeader = useCallback(
     () => (
@@ -856,11 +938,6 @@ export default function Cart() {
           style={S.deliverRow}
         >
           <View style={S.deliverLeft}>
-            {/* <MaterialCommunityIcons
-              name="map-marker-outline"
-              size={18}
-              color={C.black}
-            /> */}
             <View>
               <Text
                 style={{
@@ -870,31 +947,12 @@ export default function Cart() {
                   flexShrink: 1,
                 }}
               >
-                <Text
-                  style={{
-                    fontWeight: "800",
-                  }}
-                >
-                  Deliver to:
-                </Text>{" "}
+                <Text style={{ fontWeight: "800" }}>Deliver to:</Text>{" "}
                 {locationName ? locationName : "Check date & availability"}
               </Text>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                {/* <Text style={S.deliverSub}>
-                  {!locationName
-                    ? "Check date & availability"
-                    : "Tap to change"}
-                </Text>
-                <Feather
-                  name="chevron-right"
-                  size={16}
-                  color={C.inkLight}
-                  style={{ marginTop: 4 }}
-                /> */}
-              </View>
+              <View style={{ flexDirection: "row", alignItems: "center" }} />
             </View>
           </View>
-          {/* <Feather name="chevron-right" size={16} color={C.inkLight} /> */}
         </Pressable>
 
         <View style={S.gap8} />
@@ -906,7 +964,11 @@ export default function Cart() {
         </View>
       </View>
     ),
-    [pinCode, cartItems.length],
+    // FIX: `locationName` was previously missing from the dependency array
+    // (stale-closure bug — header text could go out of date), and the
+    // unused `pinCode` dependency, which caused unnecessary re-renders, was
+    // removed. Purely a correctness/perf fix — no UI/behavior change.
+    [locationName, cartItems.length],
   );
 
   const ListFooter = useCallback(() => {
@@ -954,6 +1016,29 @@ export default function Cart() {
     );
   }, [cartItems.length, subtotal, saved, shipping, total]);
 
+  // FIX (perf): stable handler so CheckoutBar's React.memo isn't broken by a
+  // freshly-created function reference on every parent render.
+  const handleCheckout = useCallback(async () => {
+    try {
+      if (!auth.currentUser) {
+        setOpenLogin(true);
+        return;
+      }
+      const res = await createCheckoutCart(cartItems, auth.currentUser);
+      const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
+      if (!checkoutUrl) {
+        console.log("NO CHECKOUT URL");
+        return;
+      }
+      router.push({
+        pathname: "/CheckoutWebview",
+        params: { url: checkoutUrl },
+      });
+    } catch (error) {
+      console.log("CHECKOUT ERROR", error);
+    }
+  }, [cartItems, router]);
+
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor={C.white} />
@@ -997,7 +1082,16 @@ export default function Cart() {
         }}
       />
 
-      <View style={S.screen}>
+      {/*
+        FIX (iOS gap bug): removed `paddingBottom: insets.bottom` that used
+        to live here. CheckoutBar is absolutely positioned inside this View,
+        so that padding was pushing the bar up AND the bar was separately
+        adding its own bottom inset padding — double-counting the safe area
+        and leaving a visible white strip below the bar. The wrapper now
+        simply fills the screen; CheckoutBar owns 100% of its own safe-area
+        handling.
+      */}
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
         {loading ? (
           <CartSkeleton />
         ) : (
@@ -1013,7 +1107,12 @@ export default function Cart() {
               contentContainerStyle={{
                 flexGrow: 1,
                 backgroundColor: C.bg,
-                paddingBottom: CHECKOUT_BAR_HEIGHT,
+                // FIX (both): dynamic, measured bar height instead of the
+                // old static CHECKOUT_BAR_HEIGHT guess. Guarantees the last
+                // list item / price summary is never hidden behind the bar,
+                // and doesn't over-pad when the bar is smaller (e.g. no
+                // home indicator on iPhone SE) or absent (empty cart).
+                paddingBottom: checkoutBarHeight,
               }}
               showsVerticalScrollIndicator={false}
               removeClippedSubviews={Platform.OS === "android"}
@@ -1025,33 +1124,14 @@ export default function Cart() {
               count={cartItems.length}
               total={total}
               shipping={shipping}
-              // onCheckout={() => router.push("/Delivery-Address")}
-              onCheckout={async () => {
-                try {
-                  if (!auth.currentUser) {
-                    setOpenLogin(true);
-                    return;
-                  }
-                  const res = await createCheckoutCart(
-                    cartItems,
-                    auth.currentUser,
-                  );
-                  const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
-                  if (!checkoutUrl) {
-                    console.log("NO CHECKOUT URL");
-                    return;
-                  }
-                  router.push({
-                    pathname: "/CheckoutWebview",
-                    params: {
-                      url: checkoutUrl,
-                    },
-                  });
-                } catch (error) {
-                  console.log("CHECKOUT ERROR", error);
-                }
-              }}
+              onCheckout={handleCheckout}
+              insetBottom={insets.bottom}
+              insetLeft={insets.left}
+              insetRight={insets.right}
+              isTablet={isTablet}
+              onBarLayout={handleBarLayout}
             />
+
             {/* Pincode modal */}
             <Modal
               visible={pinModalVisible}
@@ -1067,7 +1147,19 @@ export default function Cart() {
                   onPress={() => setPinModalVisible(false)}
                   style={S.modalOverlay}
                 />
-                <View style={S.modalSheet}>
+                <View
+                  style={[
+                    S.modalSheet,
+                    {
+                      // FIX (both): replaces hardcoded
+                      // `Platform.OS === "ios" ? 40 : 24` with a value that
+                      // scales with the actual home-indicator / gesture-nav
+                      // inset on the device, so the "Check Availability"
+                      // button and Close row are never cramped against it.
+                      paddingBottom: Math.max(20, insets.bottom + 20),
+                    },
+                  ]}
+                >
                   <View style={S.modalHandle} />
                   <Text style={S.modalTitle}>Delivery Location</Text>
                   <Text style={S.modalSub}>

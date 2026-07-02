@@ -281,7 +281,7 @@ const Account = () => {
               onPress={() => router.push("./ReferAndEarn")}
               icon={<Ionicons name="people-outline" size={18} color="#555" />}
               label="Refer & Earn"
-              subtitle="Invite friends, earn ₹121 each after first order delivered"
+              subtitle="Invite friends, earn ₹79 each after first order delivered"
               showBorder={false}
             />
           </Card>

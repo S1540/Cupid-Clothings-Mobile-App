@@ -11,7 +11,7 @@ import {
   View,
   Platform,
 } from "react-native";
-import CircleLoader from "../CircleLoader";
+import CircleLoader from "../ui/CircleLoader";
 const LoginModel = ({
   openLogin,
   setOpenLogin,

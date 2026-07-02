@@ -64,7 +64,7 @@ const STEPS = [
   {
     icon: "gift-outline" as const,
     title: "Both earn rewards",
-    desc: "You both receive Rs.171 in Cupid wallet.",
+    desc: "You both receive Rs.79 in Cupid wallet.",
   },
 ];
 

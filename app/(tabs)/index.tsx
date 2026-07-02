@@ -27,7 +27,7 @@ import React, {
 import { EvilIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useRouter } from "expo-router";
 import HomeSkeleton from "@/components/ui/HomeSkeleton";
-import CircleLoader from "@/components/CircleLoader";
+import CircleLoader from "@/components/ui/CircleLoader";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import Similarproductsmodal from "@/components/modal/Similarproductsmodal";

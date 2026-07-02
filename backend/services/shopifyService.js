@@ -322,14 +322,7 @@ async function fetchRecommendedProducts(productId) {
         }),
       },
     );
-
-    console.log("HTTP Status:", response.status);
-    console.log("HTTP OK:", response.ok);
-
     const data = await response.json();
-
-    console.log("Raw Response:", JSON.stringify(data, null, 2));
-
     if (!response.ok) {
       throw new Error(`Shopify HTTP Error: ${response.status}`);
     }
