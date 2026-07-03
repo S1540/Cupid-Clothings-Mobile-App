@@ -125,6 +125,11 @@ async function fetchMenu(menuHandle) {
   );
 
   const data = await response.json();
+  console.log("==================================");
+  console.log("Requested Menu:", menuHandle);
+  console.log(JSON.stringify(data, null, 2));
+  console.log("==================================");
+  console.log(JSON.stringify(data.data.menu.items[0], null, 2));
 
   if (!data.data?.menu) {
     throw new Error(`Menu "${menuHandle}" not found`);

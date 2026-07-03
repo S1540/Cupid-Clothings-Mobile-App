@@ -3,7 +3,7 @@ import HomeSkeleton from "@/components/ui/HomeSkeleton";
 import { useCartStore } from "@/store/cartStore";
 import { EvilIcons, Feather, Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { memo, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Image,
@@ -17,11 +17,6 @@ import {
 // RESPONSIVE: useSafeAreaInsets ensures nothing overlaps home indicator / notch
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type Category = {
-  name: string;
-  handle: string;
-  image: string;
-};
 type Product = {
   id: string;
   title: string;
@@ -34,66 +29,79 @@ type Product = {
   currency: string;
 };
 
-const CATEGORIES_IMAGES: Record<string, string> = {
-  "women-plain-tshirts":
-    "https://cupidclothings.com/cdn/shop/files/Frame_29343_8.png?v=1691580995&width=1000",
-  "track-pants-m-to-7xl":
-    "https://cupidclothings.com/cdn/shop/files/Frame_29343_3.png?v=1691580847&width=1000",
-  "night-suits-sets-plus-sizes":
-    "https://cupidclothings.com/cdn/shop/files/Frame_29343_5.png?v=1691580846&width=1000",
-  combos:
-    "https://cupidclothings.com/cdn/shop/files/Frame_29340.png?v=1691580847&width=1000",
-  "women-winter-wear":
-    "https://cupidclothings.com/cdn/shop/files/Frame_29343_4.png?v=1691580847&width=1000",
+// ---- Menu types (mirrors GET /api/products/menu/:handle response) ----
+type MenuChild = {
+  title: string;
+  handle: string;
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  "women-plain-tshirts": "Plain Tshirts",
-  "track-pants-m-to-7xl": "Track Pants",
-  "night-suits-sets-plus-sizes": "Night Suits",
-  combos: "Combos",
-  "women-winter-wear": "Winter Wear",
+type MenuSubcategory = {
+  title: string;
+  handle: string;
+  children?: MenuChild[];
 };
 
-const categories = Object.entries(CATEGORIES_IMAGES).map(([handle, image]) => ({
-  handle,
-  image,
-  name: CATEGORY_LABELS[handle] ?? handle.replaceAll("-", " "),
-}));
+type MenuTopCategory = {
+  title: string;
+  handle: string;
+  subcategories?: MenuSubcategory[];
+};
 
-// RESPONSIVE: categorySize prop passed in so the chip scales with screen width
-const CategoryChip = ({
-  item,
-  categorySize,
-}: {
-  item: Category;
-  categorySize: number;
-}) => (
-  <Pressable style={{ alignItems: "center", marginRight: 14 }}>
-    {/*
-     * RESPONSIVE: was fixed 70×70.
-     * Now driven by categorySize (≈18% of screen width) so it scales
-     * proportionally on iPhone SE (320px) through large Android devices.
-     */}
-    <Image
-      source={{ uri: item.image }}
-      style={{ width: categorySize, height: categorySize }}
-      resizeMode="contain"
-    />
-    <Text
-      numberOfLines={1}
-      style={{
-        marginTop: 6,
-        fontSize: 11,
-        fontWeight: "600",
-        color: "#2d1a22",
-        textAlign: "center",
-      }}
-    >
-      {item.name}
-    </Text>
-  </Pressable>
-);
+type StripItem = {
+  title: string;
+  handle: string;
+};
+
+type Gender = "women" | "men";
+
+const GENDER_HANDLES: Gender[] = ["women", "men"];
+
+// Module-level cache: remembers which parent menu (women/men) resolved last
+// time so we don't re-try both endpoints on every category navigation.
+let cachedGenderHandle: Gender | null = null;
+
+const formatHandleFallback = (rawHandle: string): string =>
+  rawHandle
+    .split("-")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+// Locates targetHandle inside a menu tree. A match can be either:
+//  - a subcategory itself (e.g. "women-plain-tshirts")
+//  - one of a subcategory's children (e.g. "longline-tops")
+// In both cases the "strip" is the subcategory + all its children.
+const findCategoryContext = (
+  menu: MenuTopCategory[],
+  targetHandle: string,
+): { title: string; strip: StripItem[] } | null => {
+  for (const topCategory of menu) {
+    const subcategories = topCategory.subcategories;
+    if (!Array.isArray(subcategories)) continue;
+
+    for (const sub of subcategories) {
+      const children = Array.isArray(sub.children) ? sub.children : [];
+
+      if (sub.handle === targetHandle) {
+        return {
+          title: sub.title,
+          strip: [{ title: sub.title, handle: sub.handle }, ...children],
+        };
+      }
+
+      const matchedChild = children.find(
+        (child) => child.handle === targetHandle,
+      );
+      if (matchedChild) {
+        return {
+          title: matchedChild.title,
+          strip: [{ title: sub.title, handle: sub.handle }, ...children],
+        };
+      }
+    }
+  }
+  return null;
+};
 
 // RESPONSIVE: productImageHeight prop so card image scales with screen
 const ProductCard = memo(
@@ -116,11 +124,6 @@ const ProductCard = memo(
         }
         style={styles.productCard}
       >
-        {/*
-         * RESPONSIVE: was fixed height: 250.
-         * Now uses productImageHeight computed from actual card width
-         * so portrait cards look correct on every screen size.
-         */}
         <View style={[styles.productImageWrap, { height: productImageHeight }]}>
           <Image
             source={{ uri: item.images?.[0]?.url || "" }}
@@ -153,74 +156,180 @@ const ProductCard = memo(
   },
 );
 
+// Premium horizontal text strip — subcategory + its children, active item
+// in pink/bold with a bottom indicator, everything else gray.
+const CategoryStrip = memo(
+  ({
+    items,
+    currentHandle,
+    onSelect,
+  }: {
+    items: StripItem[];
+    currentHandle: string;
+    onSelect: (targetHandle: string) => void;
+  }) => {
+    if (items.length === 0) return null;
+
+    return (
+      <View style={styles.stripWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.stripContent}
+        >
+          {items.map((item) => {
+            const isActive = item.handle === currentHandle;
+            return (
+              <Pressable
+                key={item.handle}
+                onPress={() => onSelect(item.handle)}
+                style={styles.stripItem}
+                hitSlop={8}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.stripItemText,
+                    isActive && styles.stripItemTextActive,
+                  ]}
+                >
+                  {item.title}
+                </Text>
+                {isActive && <View style={styles.stripIndicator} />}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  },
+);
+
 const Handle = () => {
   const [wishlist, setWishlist] = useState(false);
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const { handle } = useLocalSearchParams();
+  const params = useLocalSearchParams<{ handle?: string | string[] }>();
   const router = useRouter();
   const cartCount = useCartStore((state) => state.cartItems.length);
 
+  // REQUIREMENT 8: single normalized handle used everywhere below
+  const currentHandle: string = Array.isArray(params.handle)
+    ? params.handle[0]
+    : (params.handle ?? "");
+
+  const [stripItems, setStripItems] = useState<StripItem[]>([]);
+  const [stripLoading, setStripLoading] = useState(false);
+  const [currentCategoryTitle, setCurrentCategoryTitle] = useState<string>(() =>
+    formatHandleFallback(currentHandle),
+  );
+
   // RESPONSIVE: live screen dimensions — works on rotation and split-screen too
   const { width } = useWindowDimensions();
-
-  // RESPONSIVE: safe area insets — protects content from home indicator and notch.
-  // The Stack.Screen header already handles the top inset automatically,
-  // so we only need bottom here for the FlatList footer.
   const insets = useSafeAreaInsets();
-
-  // ─── RESPONSIVE CALCULATIONS ──────────────────────────────────────────────
-  // Category chip image: ~18% of screen width, capped so it never looks oversized.
-  // On iPhone SE (320px) → ~58px; on iPhone 14 (390px) → ~70px (matches original).
-  const categorySize = Math.min(Math.round(width * 0.18), 72);
-
-  // Product card image: each card is 49% of screen width minus horizontal padding.
-  // 12px padding on each side of the FlatList = 24px total, 4px gap between cards.
-  // Portrait ratio 1:1.35 matches the original 250px height on a ~185px-wide card.
   const cardWidth = (width - 24 - 4) * 0.49;
   const productImageHeight = Math.round(cardWidth * 1.35);
-
-  // Banner strip: was fixed height: 50 with resizeMode: "stretch".
-  // Keep it proportional — 50px on a 390px screen ≈ 12.8% of width.
-  // This prevents it from being too tall on wide tablets or too thin on SE.
   const bannerHeight = Math.round(width * 0.128);
 
+  // ---- Product fetching (unchanged API, now keyed off currentHandle) ----
   useEffect(() => {
+    if (!currentHandle) return;
+
     const fetchProducts = async () => {
       setLoading(true);
       try {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${handle}`,
+          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${currentHandle}`,
         );
         const data = await response.json();
         setProducts(data);
-        console.log("Fetched products for category:", handle, data.products);
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {
         setLoading(false);
       }
     };
-    if (handle) {
-      fetchProducts();
+
+    fetchProducts();
+  }, [currentHandle]);
+
+  // ---- Menu resolution: find currentHandle inside women/men menu tree ----
+  const loadCategoryContext = useCallback(async (targetHandle: string) => {
+    if (!targetHandle) {
+      setStripItems([]);
+      return;
     }
-  }, [handle]);
+
+    setCurrentCategoryTitle(formatHandleFallback(targetHandle));
+    setStripLoading(true);
+
+    const orderedGenders = cachedGenderHandle
+      ? [
+          cachedGenderHandle,
+          ...GENDER_HANDLES.filter((g) => g !== cachedGenderHandle),
+        ]
+      : GENDER_HANDLES;
+
+    try {
+      for (const gender of orderedGenders) {
+        try {
+          const response = await fetch(
+            `${process.env.EXPO_PUBLIC_API_URL}/api/products/menu/${gender}`,
+          );
+          const data = (await response.json()) as unknown;
+
+          const menu: MenuTopCategory[] = Array.isArray(data)
+            ? (data as MenuTopCategory[])
+            : Array.isArray((data as { menu?: unknown })?.menu)
+              ? (data as { menu: MenuTopCategory[] }).menu
+              : [];
+          console.log("Current Handle:", currentHandle);
+          console.log("Menu Response:", JSON.stringify(menu, null, 2));
+
+          const context = findCategoryContext(menu, targetHandle);
+          if (context) {
+            cachedGenderHandle = gender;
+            setStripItems(context.strip);
+            setCurrentCategoryTitle(context.title);
+            return;
+          }
+        } catch (err) {
+          // Try the next gender rather than crashing
+          console.error(`Error fetching ${gender} menu:`, err);
+        }
+      }
+
+      // Not found in either menu — fail gracefully with an empty strip
+      setStripItems([]);
+    } finally {
+      setStripLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCategoryContext(currentHandle);
+  }, [currentHandle, loadCategoryContext]);
+
+  const handleSelectCategory = useCallback(
+    (targetHandle: string) => {
+      if (targetHandle === currentHandle) return;
+      router.replace({
+        pathname: "/category/[handle]",
+        params: { handle: targetHandle },
+      });
+    },
+    [currentHandle, router],
+  );
 
   return (
     <>
       <Stack.Screen
         options={{
-          headerTitle: () =>
-            handle ? (
-              <Text
-                style={{ fontSize: 16, fontWeight: "600", color: "#1a1a1a" }}
-              >
-                {CATEGORY_LABELS[handle.toString()] ||
-                  handle.toString().replaceAll("-", " ")}
-              </Text>
-            ) : (
-              ""
-            ),
+          headerTitle: () => (
+            <Text style={{ fontSize: 16, fontWeight: "600", color: "#1a1a1a" }}>
+              {currentCategoryTitle}
+            </Text>
+          ),
           headerShadowVisible: false,
           headerStyle: { backgroundColor: "#fff7f8" },
           headerLeft: () => (
@@ -261,11 +370,6 @@ const Handle = () => {
         </View>
       ) : (
         <>
-          {/*
-           * RESPONSIVE: height was fixed at 50.
-           * Now bannerHeight scales with screen width to stay visually identical
-           * across SE, iPhone 14, and large Android screens.
-           */}
           <Image
             source={{
               uri: "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1780990865/ChatGPT_Image_Jun_9_2026_12_48_16_PM_wblovf.png",
@@ -283,7 +387,6 @@ const Handle = () => {
             numColumns={2}
             style={{ backgroundColor: "#fff" }}
             renderItem={({ item }) => (
-              // RESPONSIVE: productImageHeight passed down so card scales correctly
               <ProductCard
                 item={item}
                 productImageHeight={productImageHeight}
@@ -294,27 +397,15 @@ const Handle = () => {
             initialNumToRender={6}
             maxToRenderPerBatch={6}
             windowSize={5}
+            // REQUIREMENT 4: sticky category strip pinned to top of the FlatList
+            stickyHeaderIndices={[0]}
             ListHeaderComponent={
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                }}
-              >
-                {categories.map((cat) => (
-                  // RESPONSIVE: categorySize passed so chips scale with screen
-                  <CategoryChip
-                    key={cat.handle}
-                    item={cat}
-                    categorySize={categorySize}
-                  />
-                ))}
-              </ScrollView>
+              <CategoryStrip
+                items={stripItems}
+                currentHandle={currentHandle}
+                onSelect={handleSelectCategory}
+              />
             }
-            // RESPONSIVE: footer height accounts for iPhone home indicator so the
-            // last row of product cards is never hidden behind the swipe bar
             ListFooterComponent={
               <View style={{ height: 16 + insets.bottom }} />
             }
@@ -337,7 +428,6 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: "#f0f0f0",
   },
-  // RESPONSIVE: height removed from here — passed as prop to ProductCard
   productImageWrap: {
     width: "100%",
     backgroundColor: "#fafafa",
@@ -389,5 +479,36 @@ const styles = StyleSheet.create({
   columnWrapper: {
     justifyContent: "space-between",
     paddingHorizontal: 12,
+  },
+  // ---- Category strip ----
+  stripWrap: {
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f2eaec",
+  },
+  stripContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  stripItem: {
+    marginRight: 22,
+    alignItems: "center",
+  },
+  stripItemText: {
+    fontSize: 13.5,
+    fontWeight: "500",
+    color: "#8a8a8a",
+  },
+  stripItemTextActive: {
+    color: "#ff5c84",
+    fontWeight: "700",
+  },
+  stripIndicator: {
+    marginTop: 5,
+    height: 3,
+    width: 18,
+    borderRadius: 2,
+    backgroundColor: "#ff5c84",
   },
 });
