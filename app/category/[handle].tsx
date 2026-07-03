@@ -1,21 +1,19 @@
 // app/category/[handle].tsx
+import HomeSkeleton from "@/components/ui/HomeSkeleton";
+import { useCartStore } from "@/store/cartStore";
 import { EvilIcons, Feather, Ionicons } from "@expo/vector-icons";
-import { Stack } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { memo, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  Pressable,
-  ScrollView,
   FlatList,
   Image,
+  Pressable,
+  ScrollView,
   StyleSheet,
-  // RESPONSIVE: useWindowDimensions replaces any fixed-dimension constants
+  Text,
   useWindowDimensions,
+  View,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { memo, useEffect, useState } from "react";
-import { useCartStore } from "@/store/cartStore";
-import HomeSkeleton from "@/components/ui/HomeSkeleton";
 // RESPONSIVE: useSafeAreaInsets ensures nothing overlaps home indicator / notch
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 

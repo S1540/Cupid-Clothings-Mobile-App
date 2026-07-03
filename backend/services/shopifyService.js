@@ -88,6 +88,7 @@ async function fetchProducts(collectionHandle) {
 }
 
 // fetchMenu(Categoriess..)
+// fetchMenu (Categories)
 async function fetchMenu(menuHandle) {
   const response = await fetch(
     `https://${SHOP}.myshopify.com/api/2025-01/graphql.json`,
@@ -98,34 +99,50 @@ async function fetchMenu(menuHandle) {
         "X-Shopify-Storefront-Access-Token": STOREFRONT_TOKEN,
       },
       body: JSON.stringify({
-        query: `{
+        query: `
+        {
           menu(handle: "${menuHandle}") {
             title
             items {
               title
               url
+
               items {
                 title
                 url
+
+                items {
+                  title
+                  url
+                }
               }
             }
           }
-        }`,
+        }
+        `,
       }),
     },
   );
 
   const data = await response.json();
-  if (!data.data.menu) {
+
+  if (!data.data?.menu) {
     throw new Error(`Menu "${menuHandle}" not found`);
   }
 
   return data.data.menu.items.map((item) => ({
     title: item.title,
-    handle: item.url.split("/").pop(),
-    subcategories: item.items.map((sub) => ({
+    handle: item.url?.split("/").pop() || "",
+
+    subcategories: (item.items || []).map((sub) => ({
       title: sub.title,
-      handle: sub.url.split("/").pop(),
+      handle: sub.url?.split("/").pop() || "",
+
+      // NEW (3rd Level)
+      children: (sub.items || []).map((child) => ({
+        title: child.title,
+        handle: child.url?.split("/").pop() || "",
+      })),
     })),
   }));
 }
