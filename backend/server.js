@@ -26,6 +26,34 @@ app.post("/api/tracking-webhook", async (req, res) => {
 app.get("/api/tracking-webhook", (req, res) => {
   res.status(200).send("Webhook Working");
 });
+app.get("/test-menus", async (req, res) => {
+  const response = await fetch(
+    `https://${SHOP}.myshopify.com/admin/api/2025-01/graphql.json`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_ACCESS_TOKEN,
+      },
+      body: JSON.stringify({
+        query: `
+        {
+          menus(first: 20) {
+            nodes {
+              id
+              title
+              handle
+            }
+          }
+        }
+        `,
+      }),
+    },
+  );
+
+  const data = await response.json();
+  res.json(data);
+});
 
 app.get("/", (req, res) => {
   res.send("Cupid Clothing Backend Running Successfully ...");
