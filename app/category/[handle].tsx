@@ -52,9 +52,9 @@ type StripItem = {
   handle: string;
 };
 
-type Gender = "women" | "men";
+type Gender = "new-menu-07-12-2024";
 
-const GENDER_HANDLES: Gender[] = ["women", "men"];
+const GENDER_HANDLES: Gender[] = ["new-menu-07-12-2024"];
 
 // Module-level cache: remembers which parent menu (women/men) resolved last
 // time so we don't re-try both endpoints on every category navigation.
