@@ -1,14 +1,6 @@
-import { useEffect, useRef } from "react";
-import {
-  Animated,
-  Easing,
-  Image,
-  StatusBar,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
 import { router } from "expo-router";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, StatusBar, StyleSheet, View } from "react-native";
 
 export default function SplashScreen() {
   const scale = useRef(new Animated.Value(0.85)).current;
@@ -42,7 +34,7 @@ export default function SplashScreen() {
       <StatusBar barStyle="light-content" />
 
       <Animated.Image
-        source={require("../assets/images/splash.png")}
+        source={require("../assets/images/splash-icon.png")}
         style={[
           styles.logo,
           {
