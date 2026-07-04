@@ -19,7 +19,6 @@ router.post("/sync", async (req, res) => {
       });
 
       const reviews = response.data.reviews || [];
-
       allReviews.push(...reviews);
 
       if (reviews.length < perPage) {
@@ -78,76 +77,22 @@ router.post("/sync", async (req, res) => {
     });
   }
 });
-
-router.post("/sync", async (req, res) => {
+router.get("/review-summary", async (req, res) => {
   try {
-    let currentPage = 1;
-    const perPage = 100;
-    let allReviews = [];
-    let hasMore = true;
+    const doc = await db.collection("judgeme").doc("summary").get();
 
-    while (hasMore) {
-      const response = await judgeMeApi.get("/reviews", {
-        params: {
-          page: currentPage,
-          per_page: perPage,
-        },
+    if (!doc.exists) {
+      return res.status(404).json({
+        success: false,
+        message: "Summary not found. Run sync first.",
       });
-
-      const reviews = response.data.reviews || [];
-
-      allReviews.push(...reviews);
-
-      if (reviews.length < perPage) {
-        hasMore = false;
-      } else {
-        currentPage++;
-      }
     }
-
-    const products = {};
-
-    allReviews.forEach((review) => {
-      const productId = String(review.product_external_id);
-
-      if (!products[productId]) {
-        products[productId] = {
-          reviewCount: 0,
-          totalRating: 0,
-        };
-      }
-
-      products[productId].reviewCount++;
-      products[productId].totalRating += review.rating;
-    });
-
-    Object.keys(products).forEach((id) => {
-      products[id].averageRating = Number(
-        (products[id].totalRating / products[id].reviewCount).toFixed(1),
-      );
-
-      delete products[id].totalRating;
-    });
-
-    await db
-      .collection("judgeme")
-      .doc("summary")
-      .set({
-        updatedAt: new Date(),
-        totalProducts: Object.keys(products).length,
-        totalReviews: allReviews.length,
-        products,
-      });
 
     res.json({
       success: true,
-      message: "Judge.me summary synced successfully",
-      totalProducts: Object.keys(products).length,
-      totalReviews: allReviews.length,
+      ...doc.data(),
     });
   } catch (error) {
-    console.error(error);
-
     res.status(500).json({
       success: false,
       error: error.message,
