@@ -3,7 +3,7 @@ const router = express.Router();
 const judgeMeApi = require("../services/judgeMeService");
 const { db } = require("../firebaseAdmin");
 
-router.post("/sync", async (req, res) => {
+router.get("/sync", async (req, res) => {
   try {
     let currentPage = 1;
     const perPage = 100;
