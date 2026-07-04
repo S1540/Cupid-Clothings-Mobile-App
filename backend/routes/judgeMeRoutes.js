@@ -24,5 +24,42 @@ router.get("/test", async (req, res) => {
     });
   }
 });
+router.get("/product/:productId", async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    const response = await judgeMeApi.get("/reviews", {
+      params: {
+        product_id: productId,
+      },
+    });
+
+    res.json({
+      success: true,
+      reviews: response.data.reviews,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.response?.data || error.message,
+    });
+  }
+});
+router.get("/raw", async (req, res) => {
+  try {
+    const response = await judgeMeApi.get("/reviews", {
+      params: {
+        per_page: 100,
+      },
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.response?.data || error.message,
+    });
+  }
+});
 
 module.exports = router;
