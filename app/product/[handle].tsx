@@ -7,41 +7,37 @@ import {
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
-  LayoutChangeEvent, // FIX: needed to type the CTA bar's onLayout handler
+  LayoutChangeEvent,
   Modal,
   Pressable,
-  ScrollView,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
-// FIX (both platforms): was missing entirely — required to read real device
-// safe-area insets (notch / Dynamic Island / home indicator / Android
-// gesture-nav) instead of guessing with hardcoded numbers.
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import SuccessToast from "@/components/SuccessToast";
+import CircleLoader from "@/components/ui/CircleLoader";
+import { auth, db } from "@/firebaseConfig";
+import { useCartStore } from "@/store/cartStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   collection,
+  deleteDoc,
   doc,
+  getDoc,
   getDocs,
   setDoc,
-  deleteDoc,
-  getDoc,
 } from "firebase/firestore";
-import { auth, db } from "@/firebaseConfig";
-import { useCartStore } from "@/store/cartStore";
-import CircleLoader from "@/components/ui/CircleLoader";
-import SuccessToast from "@/components/SuccessToast";
 
 // ── Extracted components ──────────────────────────────────────────────────────
+import ProductBottomSection from "../../components/product/Productbottomsection";
+import ProductDetailsSection from "../../components/product/Productdetailssection";
 import ProductGallery from "../../components/product/ProductGallery";
 import ProductInfo from "../../components/product/Productinfo";
-import ProductDetailsSection from "../../components/product/Productdetailssection";
-import ProductBottomSection from "../../components/product/Productbottomsection";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Variant = {
@@ -107,6 +103,13 @@ export default function ProductPage() {
   const [toastValue, setToastValue] = useState("");
   const [toastPathname, setToastPathname] = useState("");
   const [toastLinkText, setToastLinkText] = useState("");
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewSummary, setReviewSummary] = useState<{
+    averageRating: number;
+    reviewCount: number;
+  } | null>(null);
+
+  const [reviews, setReviews] = useState<any[]>([]);
   const [sizeModalVisible, setSizeModalVisible] = useState(false);
   const [pendingAction, setPendingAction] = useState<"cart" | "buy" | null>(
     null,
@@ -404,6 +407,40 @@ export default function ProductPage() {
     };
     fetchProduct();
   }, [handle]);
+  // Fetch Reviewss
+  useEffect(() => {
+    if (!product) return;
+
+    const fetchReviews = async () => {
+      try {
+        setLoadingReviews(true);
+
+        const cleanId = product.id.split("/").pop();
+
+        const res = await fetch(
+          `${process.env.EXPO_PUBLIC_API_URL}/api/judgeme/product/${cleanId}`,
+        );
+
+        const data = await res.text();
+        console.log(data);
+
+        // if (data.success) {
+        //   setReviewSummary({
+        //     averageRating: data.averageRating,
+        //     reviewCount: data.reviewCount,
+        //   });
+
+        //   setReviews(data.reviews);
+        // }
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+
+    fetchReviews();
+  }, [product]);
 
   const saveRecentlyViewed = async (product: Product) => {
     try {
@@ -482,6 +519,8 @@ export default function ProductPage() {
           <ProductBottomSection
             viewedProducts={viewedProducts}
             exploreProducts={exploreProducts}
+            reviewSummary={reviewSummary}
+            reviews={reviews}
           />
         );
       }
@@ -496,6 +535,8 @@ export default function ProductPage() {
       offersVisible,
       viewedProducts,
       exploreProducts,
+      reviewSummary,
+      reviews,
     ],
   );
 
@@ -561,11 +602,6 @@ export default function ProductPage() {
           keyExtractor={(item) => item.type}
           showsVerticalScrollIndicator={false}
           renderItem={renderSection}
-          // FIX (both platforms): dynamic, measured CTA-bar height replaces
-          // the old hardcoded `height: 100` guess. Guarantees the last
-          // section (Explore / Recently Viewed) is never hidden behind the
-          // fixed bar, and doesn't over-pad on devices with a smaller bar
-          // (e.g. no home indicator on iPhone SE / Android 3-button nav).
           ListFooterComponent={<View style={{ height: ctaBarHeight }} />}
         />
       )}
@@ -592,9 +628,6 @@ export default function ProductPage() {
             borderTopRightRadius: 24,
             paddingTop: 24,
             paddingHorizontal: Math.max(24, insets.left, insets.right),
-            // FIX (both platforms): replaces the old uniform `padding: 24`.
-            // The confirm button now clears the iOS home indicator / Android
-            // gesture-nav bar instead of sitting flush against it.
             paddingBottom: 24 + insets.bottom,
             gap: 16,
           }}
@@ -748,12 +781,6 @@ export default function ProductPage() {
             borderTopColor: "#f0f0f0",
             alignItems: "center", // needed to center the capped tablet row below
             paddingTop: 14,
-            // FIX (both platforms): replaces the old uniform `padding: 14`.
-            // Horizontal padding now respects notch/Dynamic-Island/rounded-
-            // corner insets in landscape; bottom padding clears the iOS home
-            // indicator and Android gesture-nav bar instead of sitting flush
-            // against them (previously buttons could be partially obscured
-            // or hard to tap near the edge).
             paddingLeft: Math.max(14, insets.left),
             paddingRight: Math.max(14, insets.right),
             paddingBottom: 14 + insets.bottom,
@@ -762,9 +789,6 @@ export default function ProductPage() {
           <View
             style={[
               { flexDirection: "row", gap: 10, width: "100%" },
-              // FIX (tablet responsiveness): caps and centers the button row
-              // on large screens instead of letting two buttons stretch edge
-              // to edge; no visual change on phones since width < cap.
               isTablet && { maxWidth: TABLET_MAX_CONTENT_WIDTH },
             ]}
           >

@@ -1,36 +1,36 @@
 // app/(tabs)/index.tsx
 import Header from "@/components/Header";
-import "../../global.css";
-import {
-  Text,
-  View,
-  Modal,
-  ScrollView,
-  Pressable,
-  FlatList,
-  StyleSheet,
-  ListRenderItem,
-  RefreshControl,
-} from "react-native";
+import Similarproductsmodal from "@/components/modal/Similarproductsmodal";
+import CircleLoader from "@/components/ui/CircleLoader";
+import HomeSkeleton from "@/components/ui/HomeSkeleton";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import Carousel from "react-native-reanimated-carousel";
-import { useWindowDimensions } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router, useRouter } from "expo-router";
 import React, {
+  memo,
   useCallback,
   useEffect,
   useMemo,
-  useState,
-  memo,
   useRef,
+  useState,
 } from "react";
-import { EvilIcons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useRouter } from "expo-router";
-import HomeSkeleton from "@/components/ui/HomeSkeleton";
-import CircleLoader from "@/components/ui/CircleLoader";
+import {
+  FlatList,
+  ListRenderItem,
+  Modal,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
-import Similarproductsmodal from "@/components/modal/Similarproductsmodal";
+import Carousel from "react-native-reanimated-carousel";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import "../../global.css";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type Subcategory = { title: string; handle: string; image: string | null };
@@ -454,14 +454,18 @@ const ProductCard = memo(
   ({
     item,
     productImageHeight,
-
+    reviewSummary,
     onPress,
   }: {
     item: Product;
     productImageHeight: number;
+    reviewSummary: any;
     onPress: () => void;
   }) => {
     const router = useRouter();
+    const productId = item.id.split("/").pop();
+    const review = productId && reviewSummary ? reviewSummary[productId] : null;
+    // console.log(review);
 
     const handlePress = useCallback(() => {
       router.push({
@@ -482,32 +486,59 @@ const ProductCard = memo(
     return (
       <View style={styles.productCard}>
         {/* Swipeable image — tap also handled inside */}
-        <ProductImageSwiper
-          images={images}
-          height={productImageHeight}
-          onPress={handlePress}
-        />
-
-        <Pressable
-          onPressIn={handlePrefetch}
-          style={styles.wishlistBtn}
-          hitSlop={8}
-        >
-          <EvilIcons name="heart" size={24} color="black" opacity={0.5} />
-        </Pressable>
-        <Pressable
-          onPress={onPress}
-          onPressIn={handlePrefetch}
-          style={styles.similerBtn}
-          hitSlop={8}
-        >
-          <MaterialCommunityIcons
-            name="cards-outline"
-            size={24}
-            color="black"
-            opacity={0.5}
+        <View>
+          <ProductImageSwiper
+            images={images}
+            height={productImageHeight}
+            onPress={handlePress}
           />
-        </Pressable>
+
+          <Pressable
+            onPressIn={handlePrefetch}
+            style={styles.wishlistBtn}
+            hitSlop={8}
+          >
+            {review && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginTop: 4,
+                  // marginBottom: 2,
+                  paddingVertical: 1,
+                  paddingHorizontal: 2,
+                  borderRadius: 2,
+                  backgroundColor: "rgba(255,255,255,0.55)",
+                }}
+              >
+                <MaterialCommunityIcons name="star" size={13} color="#F59E0B" />
+
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    marginLeft: 3,
+                  }}
+                >
+                  {review.averageRating} ({review.reviewCount})
+                </Text>
+              </View>
+            )}
+          </Pressable>
+          <Pressable
+            onPress={onPress}
+            onPressIn={handlePrefetch}
+            style={styles.similerBtn}
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons
+              name="cards-outline"
+              size={24}
+              color="black"
+              opacity={0.7}
+            />
+          </Pressable>
+        </View>
 
         {/* Info section — separate Pressable so the whole card is tappable */}
         <Pressable onPress={handlePress} style={{ padding: 10, gap: 4 }}>
@@ -727,6 +758,7 @@ export default function Index() {
   const [filterVisible, setFilterVisible] = useState(false);
   const [similarModal, setSimilarModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [reviewSummary, setReviewSummary] = useState<any>(null);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     priceRange: null,
     sizes: [],
@@ -734,7 +766,7 @@ export default function Index() {
     sort: null,
   });
 
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const snapRef = useRef<((index: number) => void) | null>(null);
   const isFirstLoad = useRef(true);
@@ -746,6 +778,17 @@ export default function Index() {
   const categorySize = Math.round(width * 0.24);
   const cardWidth = (width - 32 - 8) / 2;
   const productImageHeight = Math.round(cardWidth * 1.35);
+  const prefetched = useRef(new Set<string>());
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    viewableItems.forEach(({ item }: any) => {
+      item.images?.forEach((img: any) => {
+        if (!prefetched.current.has(img.url)) {
+          prefetched.current.add(img.url);
+          Image.prefetch(img.url);
+        }
+      });
+    });
+  }).current;
 
   useEffect(() => {
     banners.forEach((b) => {
@@ -763,7 +806,27 @@ export default function Index() {
       ),
     [allProducts, searchText],
   );
+  // Fetching review from Firebse db
+  useEffect(() => {
+    const fetchReviewSummary = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_API_URL}/api/judgeme/review-summary`,
+        );
 
+        const data = await response.json();
+        if (data.success) {
+          setReviewSummary(data.products);
+        }
+      } catch (error) {
+        console.log("Review summary error:", error);
+      }
+    };
+
+    fetchReviewSummary();
+  }, []);
+
+  // Fetching Productss data
   useEffect(() => {
     const fetchProduct = async () => {
       if (!isFirstLoad.current) setRefreshing(true);
@@ -856,11 +919,12 @@ export default function Index() {
     ({ item }: { item: Product }) => (
       <ProductCard
         item={item}
+        reviewSummary={reviewSummary}
         productImageHeight={productImageHeight}
         onPress={() => openSimilarModal(item)}
       />
     ),
-    [productImageHeight],
+    [productImageHeight, reviewSummary, openSimilarModal],
   );
 
   // Stable string-based keyExtractor avoids object allocation per render
@@ -921,6 +985,10 @@ export default function Index() {
             updateCellsBatchingPeriod={50}
             windowSize={7}
             removeClippedSubviews={true}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={{
+              itemVisiblePercentThreshold: 40,
+            }}
             ListFooterComponent={
               <View style={{ height: 80 + insets.bottom }} />
             }
@@ -1029,11 +1097,9 @@ const styles = StyleSheet.create({
   // Wishlist sits outside the swiper at absolute position
   wishlistBtn: {
     position: "absolute",
-    top: 8,
+    bottom: 8,
     left: 8,
-    backgroundColor: "rgba(255,255,255,0.75)",
     borderRadius: 20,
-    width: 30,
     height: 30,
     alignItems: "center",
     justifyContent: "center",
@@ -1041,9 +1107,9 @@ const styles = StyleSheet.create({
   },
   similerBtn: {
     position: "absolute",
-    top: 8,
+    bottom: 8,
     right: 8,
-    backgroundColor: "rgba(255,255,255,0.75)",
+    backgroundColor: "rgba(255,255,255,0.45)",
     borderRadius: 20,
     width: 30,
     height: 30,

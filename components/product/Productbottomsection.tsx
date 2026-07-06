@@ -1,7 +1,7 @@
 // components/product/ProductBottomSection.tsx
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   Image,
   Pressable,
@@ -23,74 +23,56 @@ type Product = {
   currency: string;
 };
 
+type Review = {
+  id: number;
+  rating: number;
+  title: string;
+  body: string;
+  reviewer: { name: string };
+  verified: boolean;
+  created_at: string;
+  pictures?: any[];
+};
+
+type ReviewSummary = {
+  averageRating: number;
+  reviewCount: number;
+} | null;
+
 type ProductBottomSectionProps = {
+  reviewSummary: ReviewSummary;
+  reviews: Review[];
   viewedProducts: Product[];
   exploreProducts: Product[];
 };
 
-const REVIEWS = [
-  {
-    id: 1,
-    name: "Priya S.",
-    rating: 5,
-    title: "Absolutely love it!",
-    body: "The fabric is so soft and comfortable. Fits perfectly and looks exactly like the photos. Will definitely buy more!",
-    date: "12 May 2025",
-    verified: true,
-  },
-  {
-    id: 2,
-    name: "Anjali M.",
-    rating: 4,
-    title: "Great quality",
-    body: "Very happy with the purchase. The color is vibrant and the stitching is neat. Delivery was also quick.",
-    date: "3 Apr 2025",
-    verified: true,
-  },
-  {
-    id: 3,
-    name: "Ritu K.",
-    rating: 5,
-    title: "Perfect fit!",
-    body: "Ordered L size and it fits like a dream. The material is premium and feels great on skin.",
-    date: "28 Mar 2025",
-    verified: false,
-  },
-  {
-    id: 4,
-    name: "Sneha T.",
-    rating: 4,
-    title: "Nice product",
-    body: "Good quality for the price. Slight color difference from screen but still looks good.",
-    date: "15 Feb 2025",
-    verified: true,
-  },
-  {
-    id: 5,
-    name: "Kavita R.",
-    rating: 5,
-    title: "Highly recommend!",
-    body: "Bought this for my sister and she loved it. Super comfortable and stylish!",
-    date: "2 Jan 2025",
-    verified: true,
-  },
-];
+function formatDate(isoString: string) {
+  if (!isoString) return "";
+  try {
+    return new Date(isoString).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "";
+  }
+}
 
 const ProductBottomSection = React.memo(
-  ({ viewedProducts, exploreProducts }: ProductBottomSectionProps) => {
+  ({
+    reviewSummary,
+    reviews,
+    viewedProducts,
+    exploreProducts,
+  }: ProductBottomSectionProps) => {
     const router = useRouter();
     const { width } = useWindowDimensions();
     const [showAll, setShowAll] = useState(false);
 
-    // Memoized shuffle so order stays stable across re-renders
-    const shuffled = useMemo(
-      () => [...REVIEWS].sort(() => Math.random() - 0.5),
-      [],
-    );
-    const displayed = showAll ? shuffled : shuffled.slice(0, 2);
-    const avgRating = (
-      REVIEWS.reduce((s, r) => s + r.rating, 0) / REVIEWS.length
-    ).toFixed(1);
+    const displayed = showAll ? reviews : reviews.slice(0, 2);
+    const avgRating = reviewSummary?.averageRating ?? 0;
+    const reviewCount = reviewSummary?.reviewCount ?? 0;
 
     // Explore card: half screen minus padding and gap
     const exploreCardWidth = (width - 32 - 10) / 2;
@@ -121,7 +103,7 @@ const ProductBottomSection = React.memo(
                 <Text
                   style={{ fontSize: 24, fontWeight: "800", color: "#111" }}
                 >
-                  {avgRating}
+                  {avgRating.toFixed(1)}
                 </Text>
                 <View style={{ flexDirection: "row" }}>
                   {[1, 2, 3, 4, 5].map((s) => (
@@ -129,8 +111,7 @@ const ProductBottomSection = React.memo(
                       key={s}
                       style={{
                         fontSize: 15,
-                        color:
-                          parseFloat(avgRating) >= s ? "#FFB800" : "#e0e0e0",
+                        color: avgRating >= s ? "#FFB800" : "#e0e0e0",
                       }}
                     >
                       ★
@@ -138,7 +119,7 @@ const ProductBottomSection = React.memo(
                   ))}
                 </View>
                 <Text style={{ fontSize: 13, color: "#aaa" }}>
-                  ({REVIEWS.length})
+                  ({reviewCount})
                 </Text>
               </View>
             </View>
@@ -158,6 +139,21 @@ const ProductBottomSection = React.memo(
               </Text>
             </Pressable>
           </View>
+
+          {/* Empty state */}
+          {reviewCount === 0 && (
+            <View
+              style={{
+                paddingVertical: 20,
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <Text style={{ fontSize: 14, color: "#999" }}>
+                No reviews yet. Be the first to review this product!
+              </Text>
+            </View>
+          )}
 
           {/* Review cards */}
           {displayed.map((review) => (
@@ -208,7 +204,7 @@ const ProductBottomSection = React.memo(
                         color: "#ff5c84",
                       }}
                     >
-                      {review.name.charAt(0)}
+                      {review.reviewer?.name?.charAt(0)?.toUpperCase() || "?"}
                     </Text>
                   </View>
                   <View style={{ gap: 2 }}>
@@ -219,7 +215,7 @@ const ProductBottomSection = React.memo(
                         color: "#111",
                       }}
                     >
-                      {review.name}
+                      {review.reviewer?.name || "Anonymous"}
                     </Text>
                     {review.verified && (
                       <Text
@@ -245,17 +241,25 @@ const ProductBottomSection = React.memo(
                   {"☆".repeat(5 - review.rating)}
                 </Text>
               </View>
-              <Text style={{ fontSize: 14, fontWeight: "700", color: "#111" }}>
-                {review.title}
+              {!!review.title && (
+                <Text
+                  style={{ fontSize: 14, fontWeight: "700", color: "#111" }}
+                >
+                  {review.title}
+                </Text>
+              )}
+              {!!review.body && (
+                <Text style={{ fontSize: 14, color: "#666", lineHeight: 21 }}>
+                  {review.body}
+                </Text>
+              )}
+              <Text style={{ fontSize: 12, color: "#bbb" }}>
+                {formatDate(review.created_at)}
               </Text>
-              <Text style={{ fontSize: 14, color: "#666", lineHeight: 21 }}>
-                {review.body}
-              </Text>
-              <Text style={{ fontSize: 12, color: "#bbb" }}>{review.date}</Text>
             </View>
           ))}
 
-          {!showAll && (
+          {!showAll && reviews.length > 2 && (
             <Pressable
               onPress={() => setShowAll(true)}
               style={{
@@ -273,7 +277,7 @@ const ProductBottomSection = React.memo(
               <Text
                 style={{ fontSize: 14, fontWeight: "600", color: "#ff5c84" }}
               >
-                View All {REVIEWS.length} Reviews
+                View All {reviews.length} Reviews
               </Text>
               <Feather name="chevron-down" size={14} color="#ff5c84" />
             </Pressable>

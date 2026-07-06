@@ -3,7 +3,7 @@ const router = express.Router();
 const judgeMeApi = require("../services/judgeMeService");
 const { db } = require("../firebaseAdmin");
 
-router.get("/sync", async (req, res) => {
+router.post("/sync", async (req, res) => {
   try {
     let currentPage = 1;
     const perPage = 100;
@@ -29,6 +29,7 @@ router.get("/sync", async (req, res) => {
     }
 
     const products = {};
+    const productReviews = {};
 
     allReviews.forEach((review) => {
       const productId = String(review.product_external_id);
@@ -42,6 +43,24 @@ router.get("/sync", async (req, res) => {
 
       products[productId].reviewCount++;
       products[productId].totalRating += review.rating;
+
+      // NEW
+      if (!productReviews[productId]) {
+        productReviews[productId] = [];
+      }
+
+      productReviews[productId].push({
+        id: review.id,
+        rating: review.rating,
+        title: review.title,
+        body: review.body,
+        reviewer: {
+          name: review.reviewer?.name || "Anonymous",
+        },
+        verified: review.verified,
+        created_at: review.created_at,
+        pictures: review.pictures || [],
+      });
     });
 
     Object.keys(products).forEach((id) => {
@@ -61,6 +80,21 @@ router.get("/sync", async (req, res) => {
         totalReviews: allReviews.length,
         products,
       });
+
+    const batch = db.batch();
+
+    Object.keys(productReviews).forEach((productId) => {
+      const ref = db.collection("judgemeReviews").doc(productId);
+
+      batch.set(ref, {
+        averageRating: products[productId].averageRating,
+        reviewCount: products[productId].reviewCount,
+        reviews: productReviews[productId],
+        updatedAt: new Date(),
+      });
+    });
+
+    await batch.commit();
 
     res.json({
       success: true,
