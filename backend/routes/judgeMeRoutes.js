@@ -3,7 +3,7 @@ const router = express.Router();
 const judgeMeApi = require("../services/judgeMeService");
 const { db } = require("../firebaseAdmin");
 
-router.post("/sync", async (req, res) => {
+router.get("/sync", async (req, res) => {
   try {
     let currentPage = 1;
     const perPage = 100;
@@ -134,4 +134,21 @@ router.get("/review-summary", async (req, res) => {
   }
 });
 
+router.get("/product/:productId", async (req, res) => {
+  const { productId } = req.params;
+
+  const doc = await db.collection("judgemeReviews").doc(productId).get();
+
+  if (!doc.exists) {
+    return res.status(404).json({
+      success: false,
+      message: "Reviews not found",
+    });
+  }
+
+  res.json({
+    success: true,
+    ...doc.data(),
+  });
+});
 module.exports = router;
