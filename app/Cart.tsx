@@ -1,36 +1,36 @@
+import CartSkeleton from "@/components/CartSkeleton";
+import LoginModel from "@/components/modal/LoginModel";
+import SignUpModel from "@/components/modal/SignUpModel";
+import { auth, db } from "@/firebaseConfig";
+import { createCheckoutCart } from "@/lib/shopify";
+import { useCartStore } from "@/store/cartStore";
+import { useLocationStore } from "@/store/useLocationStore";
 import {
   EvilIcons,
   Feather,
   Ionicons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { Stack, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createCheckoutCart } from "@/lib/shopify";
+import { Stack, useRouter } from "expo-router";
+import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Pressable,
-  Text,
-  TextInput,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
   FlatList,
+  Image,
+  KeyboardAvoidingView,
+  LayoutChangeEvent,
+  Modal,
+  Platform,
+  Pressable,
   StatusBar,
   StyleSheet,
+  Text,
+  TextInput,
   TouchableOpacity,
-  LayoutChangeEvent,
-  useWindowDimensions, // FIX (responsive/tablet + rotation): reactive dimensions instead of static Dimensions.get()
+  useWindowDimensions,
+  View,
 } from "react-native";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
-import { auth, db } from "@/firebaseConfig";
-import { useCartStore } from "@/store/cartStore";
-import CartSkeleton from "@/components/CartSkeleton";
-import { useLocationStore } from "@/store/useLocationStore";
-import LoginModel from "@/components/modal/LoginModel";
-import SignUpModel from "@/components/modal/SignUpModel";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type CartItem = {
@@ -471,6 +471,7 @@ const QtyStepper = React.memo(
 const CartItemRow = React.memo(
   ({
     item,
+    onCheckout,
     onIncrease,
     onDecrease,
     onRemove,
@@ -479,6 +480,7 @@ const CartItemRow = React.memo(
   }: {
     item: CartItem;
     onIncrease: () => void;
+    onCheckout: () => void;
     onDecrease: () => void;
     onRemove: () => void;
     onNavigate: () => void;
@@ -507,7 +509,7 @@ const CartItemRow = React.memo(
                 <Text style={S.discBadgeTxt}>{item.discountPercent}% OFF</Text>
               </View>
             )}
-            <Pressable onPress={onWishlist} style={S.buyNow}>
+            <Pressable onPress={onCheckout} style={S.buyNow}>
               <Text style={S.buyNowBtn}>Buy This Now</Text>
             </Pressable>
           </Pressable>
@@ -732,7 +734,24 @@ const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
       backgroundColor: "#fff",
     }}
   >
-    <MaterialCommunityIcons name="cart-outline" size={50} color="#F87387" />
+    <View
+      style={{
+        borderRadius: 44,
+        width: 100,
+        height: 100,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 8,
+      }}
+    >
+      <Image
+        source={require("../assets/icons/empty-cart.png")}
+        style={{ width: "100%", height: "100%" }}
+        resizeMode="contain"
+      />
+
+      {/* <FontAwesome6 name="sad-tear" size={50} color="#F87387" /> */}
+    </View>
     <Text
       style={{
         fontSize: 18,
@@ -913,6 +932,7 @@ export default function Cart() {
     ({ item }: { item: CartItem }) => (
       <CartItemRow
         item={item}
+        onCheckout={() => handleCheckoutSingleProduct(item)}
         onIncrease={() => increase(item.id)}
         onDecrease={() => decrease(item.id)}
         onRemove={() => remove(item.id)}
@@ -1015,6 +1035,34 @@ export default function Cart() {
       </View>
     );
   }, [cartItems.length, subtotal, saved, shipping, total]);
+
+  const handleCheckoutSingleProduct = useCallback(
+    async (product: CartItem) => {
+      try {
+        if (!auth.currentUser) {
+          setOpenLogin(true);
+          return;
+        }
+
+        const res = await createCheckoutCart(
+          [product], // Only this product
+          auth.currentUser,
+        );
+
+        const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
+
+        if (!checkoutUrl) return;
+
+        router.push({
+          pathname: "/CheckoutWebview",
+          params: { url: checkoutUrl },
+        });
+      } catch (e) {
+        console.log(e);
+      }
+    },
+    [router],
+  );
 
   // FIX (perf): stable handler so CheckoutBar's React.memo isn't broken by a
   // freshly-created function reference on every parent render.

@@ -1,4 +1,5 @@
 const { db } = require("../firebaseAdmin");
+const { FieldValue } = require("firebase-admin/firestore");
 const axios = require("axios");
 
 // Fetch product image from Shopify Admin API
@@ -77,6 +78,9 @@ const saveOrderToFirebase = async (order) => {
       courier: null,
       shiprocketOrderId: null,
       trackingStatus: null,
+      coinRewardGiven: false,
+      earnedCoins: 0,
+      coinRewardedAt: null,
     });
 
   console.log("ORDER SAVED:", order.id);
@@ -100,20 +104,16 @@ const updateTrackingStatus = async (payload) => {
       .limit(1)
       .get();
 
-    console.log("CHECK USER:", userDoc.id, "MATCHES:", orderSnap.size);
-
     if (!orderSnap.empty) {
       console.log("ORDER FOUND");
 
       const orderDoc = orderSnap.docs[0];
+      const orderData = orderDoc.data();
+
       const userRef = db.collection("users").doc(userDoc.id);
       const userData = (await userRef.get()).data();
 
-      // console.log("USER DATA:", {
-      //   referredBy: userData.referredBy,
-      //   rewardGiven: userData.rewardGiven,
-      // });
-
+      // Update tracking
       await orderDoc.ref.update({
         shiprocketOrderId: payload.sr_order_id || null,
         awb: payload.awb || null,
@@ -126,41 +126,61 @@ const updateTrackingStatus = async (payload) => {
         undeliveredReason: payload.undelivered_reason || null,
       });
 
-      if (
-        payload.current_status?.toUpperCase() === "DELIVERED" &&
-        userData.referredBy &&
-        !userData.rewardGiven
-      ) {
-        console.log("REFERRAL REWARD ELIGIBLE");
+      //  Cheack if order is delivered
 
-        const referrerSnap = await db
-          .collection("users")
-          .where("referralCode", "==", userData.referredBy)
-          .limit(1)
-          .get();
-
-        if (!referrerSnap.empty) {
-          const referrerRef = referrerSnap.docs[0].ref;
-          const referrerData = referrerSnap.docs[0].data();
-
-          await referrerRef.update({
-            walletBalance: (referrerData.walletBalance || 0) + 79,
-            totalEarnings: (referrerData.totalEarnings || 0) + 79,
-            referralEarnings: (referrerData.referralEarnings || 0) + 79,
-            lastRewardAt: new Date(),
-          });
+      if (payload.current_status?.toUpperCase() === "DELIVERED") {
+        // Give cupid coins
+        if (!orderData.coinRewardGiven) {
+          const coins = Math.floor((orderData.total || 0) / 20);
 
           await userRef.update({
-            walletBalance: (userData.walletBalance || 0) + 79,
-            totalEarnings: (userData.totalEarnings || 0) + 79,
-            rewardGiven: true,
+            cupidCoins: FieldValue.increment(coins),
+            totalEarnedCoins: FieldValue.increment(coins),
             lastRewardAt: new Date(),
           });
 
-          console.log("₹171 REFERRAL REWARD GIVEN");
+          await orderDoc.ref.update({
+            coinRewardGiven: true,
+            earnedCoins: coins,
+            coinRewardedAt: new Date(),
+          });
+
+          console.log(`${coins} CUPID COINS CREDITED`);
+        }
+
+        // ------------ REFERRAL REWARD
+
+        if (userData.referredBy && !userData.rewardGiven) {
+          console.log("REFERRAL REWARD ELIGIBLE");
+
+          const referrerSnap = await db
+            .collection("users")
+            .where("referralCode", "==", userData.referredBy)
+            .limit(1)
+            .get();
+
+          if (!referrerSnap.empty) {
+            const referrerRef = referrerSnap.docs[0].ref;
+
+            await referrerRef.update({
+              walletBalance: FieldValue.increment(79),
+              totalEarnings: FieldValue.increment(79),
+              referralEarnings: FieldValue.increment(79),
+              lastRewardAt: new Date(),
+            });
+
+            await userRef.update({
+              walletBalance: FieldValue.increment(79),
+              totalEarnings: FieldValue.increment(79),
+              rewardGiven: true,
+              lastRewardAt: new Date(),
+            });
+
+            console.log("REFERRAL REWARD GIVEN");
+          }
         }
       }
-      // console.log("TRACKING UPDATED:", orderNumber);
+
       break;
     }
   }

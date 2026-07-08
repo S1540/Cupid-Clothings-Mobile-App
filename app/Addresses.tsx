@@ -1,18 +1,19 @@
 // screens/MyAddresses.tsx
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Pressable,
-  Modal,
-} from "react-native";
-import { Ionicons, Feather, EvilIcons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { auth, db } from "@/firebaseConfig";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
-import { db, auth } from "@/firebaseConfig";
+import { useEffect, useState } from "react";
+import {
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ─── Types
 type addressType = "Home" | "Work" | "Other";
@@ -370,7 +371,7 @@ const DeleteModal = ({
   </Modal>
 );
 
-// ─── Empty State ──────────────────────────────────────────
+// ─── Empty State --------------------------------
 const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
   <View
     style={{
@@ -383,19 +384,21 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
   >
     <View
       style={{
-        width: 140,
-        height: 140,
         borderRadius: 44,
-        // backgroundColor: "#FFF0F4",
+        width: 100,
+        height: 100,
         alignItems: "center",
         justifyContent: "center",
-        marginBottom: 20,
+        marginBottom: 8,
       }}
     >
-      <Text style={{ fontSize: 100, fontWeight: "700", color: "#F87387" }}>
-        🏠
-      </Text>
-      {/* <Ionicons name="location-outline" size={42} color="#F87387" /> */}
+      <Image
+        source={require("../assets/icons/map.png")}
+        style={{ width: "100%", height: "100%" }}
+        resizeMode="contain"
+      />
+
+      {/* <FontAwesome6 name="sad-tear" size={50} color="#F87387" /> */}
     </View>
     <Text
       style={{
@@ -419,7 +422,7 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
     >
       Add your first delivery address{"\n"}to continue shopping
     </Text>
-    <TouchableOpacity
+    {/* <TouchableOpacity
       onPress={onAdd}
       style={{
         paddingHorizontal: 24,
@@ -431,7 +434,7 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
       <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
         Add Address
       </Text>
-    </TouchableOpacity>
+    </TouchableOpacity> */}
   </View>
 );
 

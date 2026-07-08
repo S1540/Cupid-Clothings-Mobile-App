@@ -1,18 +1,18 @@
-import React, { useEffect, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Share,
-  Clipboard,
-} from "react-native";
 import { EvilIcons, Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { Pressable } from "react-native-gesture-handler";
 import { doc, getDoc } from "firebase/firestore";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Clipboard,
+  ScrollView,
+  Share,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Pressable } from "react-native-gesture-handler";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../firebaseConfig";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -23,6 +23,7 @@ interface WalletData {
   referralEarnings: number;
   totalReferrals: number;
   referralCode: string;
+  cupidCoins: number;
 }
 
 const DEFAULT_WALLET: WalletData = {
@@ -31,6 +32,7 @@ const DEFAULT_WALLET: WalletData = {
   referralEarnings: 0,
   totalReferrals: 0,
   referralCode: "",
+  cupidCoins: 0,
 };
 
 function formatINR(val: number): string {
@@ -105,6 +107,7 @@ export default function WalletScreen() {
           referralEarnings: d.referralEarnings ?? 0,
           totalReferrals: d.totalReferrals ?? 0,
           referralCode: d.referralCode ?? "",
+          cupidCoins: d.cupidCoins ?? 0,
         });
       }
     } catch {
@@ -236,7 +239,7 @@ export default function WalletScreen() {
                     marginBottom: 6,
                   }}
                 >
-                  Available Balance
+                  Available Cupid Coins
                 </Text>
 
                 {/* Big balance */}
@@ -247,7 +250,7 @@ export default function WalletScreen() {
                     gap: 2,
                   }}
                 >
-                  <Text
+                  {/* <Text
                     style={{
                       fontSize: 18,
                       fontWeight: "600",
@@ -256,7 +259,7 @@ export default function WalletScreen() {
                     }}
                   >
                     ₹
-                  </Text>
+                  </Text> */}
                   <Text
                     style={{
                       fontSize: 52,
@@ -266,7 +269,7 @@ export default function WalletScreen() {
                       lineHeight: 58,
                     }}
                   >
-                    {formatINR(wallet.walletBalance)}
+                    {formatINR(wallet.cupidCoins)}
                   </Text>
                 </View>
 
@@ -319,7 +322,7 @@ export default function WalletScreen() {
                       ₹{formatINR(wallet.totalEarnings)}
                     </Text>
                     <Text style={{ fontSize: 11, color: "#bbb", marginTop: 2 }}>
-                      Total Earned
+                      Total Earnings
                     </Text>
                   </View>
 
@@ -346,6 +349,28 @@ export default function WalletScreen() {
                       Referral Earnings
                     </Text>
                   </View>
+                  {/* <View
+                    style={{
+                      width: 1,
+                      backgroundColor: "#F5E6E9",
+                      marginHorizontal: 16,
+                    }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "700",
+                        color: "#1A1A1A",
+                        letterSpacing: -0.4,
+                      }}
+                    >
+                      ₹{formatINR(wallet.cupidCoins)}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: "#bbb", marginTop: 2 }}>
+                      Orders Earnings
+                    </Text>
+                  </View> */}
                 </View>
               </View>
 

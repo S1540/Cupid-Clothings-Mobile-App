@@ -1,21 +1,21 @@
 // app/(tabs)/Orders.tsx
-import React, { useEffect, useState } from "react";
+import { OrdersSkeleton } from "@/components/ui/OrderSkeleton";
+import { auth, db } from "@/firebaseConfig";
+import { Order, useOrderStore } from "@/store/orderStore";
+import { EvilIcons, Ionicons } from "@expo/vector-icons";
+import { Stack, useRouter } from "expo-router";
+import { collection, onSnapshot } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
+  Image,
+  Pressable,
   ScrollView,
   StatusBar,
-  Pressable,
-  Image,
+  Text,
   TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Stack, useRouter } from "expo-router";
-import { EvilIcons, Ionicons } from "@expo/vector-icons";
-import { db, auth } from "@/firebaseConfig";
-import { collection, onSnapshot } from "firebase/firestore";
-import { OrdersSkeleton } from "@/components/ui/OrderSkeleton";
-import { Order, useOrderStore } from "@/store/orderStore";
 
 // -------- Types for status--------
 type OrderStatus = "delivered" | "shipped" | "processing" | "cancelled";
@@ -125,17 +125,21 @@ const EmptyOrdersState = ({ onShopPress }: { onShopPress: () => void }) => (
   >
     <View
       style={{
-        width: 140,
-        height: 140,
         borderRadius: 44,
+        width: 100,
+        height: 100,
         alignItems: "center",
         justifyContent: "center",
-        marginBottom: 20,
+        marginBottom: 8,
       }}
     >
-      <Text style={{ fontSize: 100, fontWeight: "700", color: "#F87387" }}>
-        🛍️
-      </Text>
+      <Image
+        source={require("../assets/icons/no-order.png")}
+        style={{ width: "100%", height: "100%" }}
+        resizeMode="contain"
+      />
+
+      {/* <FontAwesome6 name="sad-tear" size={50} color="#F87387" /> */}
     </View>
     <Text
       style={{
@@ -146,7 +150,7 @@ const EmptyOrdersState = ({ onShopPress }: { onShopPress: () => void }) => (
         textAlign: "center",
       }}
     >
-      No orders yet
+      Order not found
     </Text>
     <Text
       style={{
@@ -157,10 +161,9 @@ const EmptyOrdersState = ({ onShopPress }: { onShopPress: () => void }) => (
         marginBottom: 24,
       }}
     >
-      Looks like you haven't placed any orders.{"\n"}Start exploring and shop
-      your favorites.
+      Looks like you haven't placed any orders.
     </Text>
-    <Pressable
+    {/* <Pressable
       onPress={onShopPress}
       style={{
         paddingHorizontal: 24,
@@ -172,7 +175,7 @@ const EmptyOrdersState = ({ onShopPress }: { onShopPress: () => void }) => (
       <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
         Start Shopping
       </Text>
-    </Pressable>
+    </Pressable> */}
   </View>
 );
 

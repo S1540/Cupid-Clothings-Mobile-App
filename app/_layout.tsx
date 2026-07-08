@@ -1,22 +1,22 @@
+import BottomBar from "@/components/BottomBar";
+import { auth, db } from "@/firebaseConfig";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import * as SplashScreen from "expo-splash-screen";
 import { Stack, usePathname } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import "react-native-reanimated";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useEffect, useState } from "react";
-import "./constants/mapbox";
-import "../global.css";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import BottomBar from "@/components/BottomBar";
-import { auth, db } from "@/firebaseConfig";
-import { doc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import "react-native-reanimated";
+import "../global.css";
 import { useUserStore } from "../store/userStore";
+import "./constants/mapbox";
 SplashScreen.preventAutoHideAsync().catch(() => {});
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -31,13 +31,13 @@ export default function RootLayout() {
 
   const hideBottomBar =
     pathname.startsWith("/product/") ||
-    pathname === "/Cart" ||
+    // pathname === "/Cart" ||
     pathname === "/CheckoutWebview" ||
     pathname === "/Addresses" ||
     pathname === "/Add-Address" ||
     pathname === "/Select-Location" ||
     pathname === "/Search" ||
-    pathname === "/Orders" ||
+    // pathname === "/Orders" ||
     pathname === "/Order-Details" ||
     pathname === "/Wishlist";
   useEffect(() => {

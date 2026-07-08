@@ -1,20 +1,20 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  ScrollView,
-  Switch,
-  StatusBar,
-} from "react-native";
+import SignUpModel from "@/components/modal/SignUpModel";
 import { auth } from "@/firebaseConfig";
+import { useOrderStore } from "@/store/orderStore";
 import { useUserStore } from "@/store/userStore";
+import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { signOut as firebaseSignOut } from "firebase/auth";
-import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StatusBar,
+  Switch,
+  Text,
+  View,
+} from "react-native";
 import LoginModel from "../components/modal/LoginModel";
-import SignUpModel from "@/components/modal/SignUpModel";
-import { useOrderStore } from "@/store/orderStore";
 
 // ------------------------------ Reusable: Section Label
 const SectionLabel = ({ title }: { title: string }) => (
@@ -166,7 +166,7 @@ const Account = () => {
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.05,
                 shadowRadius: 12,
-                elevation: 2,
+                elevation: 0.5,
               }}
             >
               {/* Identity row: avatar + name/subtitle. flex-1 + min-w-0 on the
@@ -241,7 +241,7 @@ const Account = () => {
           </View>
 
           {/* ----------------------------QUICK LINKS---------------------------------------  */}
-          <View className="flex-row bg-white mx-4 mt-4 rounded-md border border-[#f0f0f0] overflow-hidden">
+          <View className="flex-row bg-white mx-4 mt-2 rounded-md border border-[#f0f0f0] overflow-hidden">
             {[
               { icon: "package", label: "Orders", route: "/Orders" },
               { icon: "heart", label: "Wishlist", route: "/Wishlist" },
@@ -264,7 +264,7 @@ const Account = () => {
           </View>
 
           {/*---------------------------- OFFERS STRIP------------------------------*/}
-          <SectionLabel title="Offers & Rewards" />
+          {/* <SectionLabel title="Offers & Rewards" />
           <Card>
             <Row
               icon={<Feather name="tag" size={18} color="#555" />}
@@ -284,7 +284,7 @@ const Account = () => {
               subtitle="Invite friends, earn ₹79 each after first order delivered"
               showBorder={false}
             />
-          </Card>
+          </Card> */}
 
           {/* NOTIFICATIONS */}
           <SectionLabel title="Notifications" />

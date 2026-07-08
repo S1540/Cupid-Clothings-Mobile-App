@@ -1,17 +1,18 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useRouter } from "expo-router";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { useRouter } from "expo-router";
+import { useRef } from "react";
 import {
-  View,
-  Text,
-  Pressable,
   Animated,
-  StatusBar,
-  ScrollView,
   Image,
   Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  Text,
+  View,
 } from "react-native";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const NAV_ITEMS = [
   "Women",
@@ -29,6 +30,7 @@ export default function Header({
   setActiveNav: (value: string) => void;
 }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const bannerAnim = useRef(new Animated.Value(0)).current;
 
   // useFocusEffect(
@@ -93,7 +95,7 @@ export default function Header({
         right: 0,
         zIndex: 100,
         backgroundColor: "transparent",
-        paddingTop: 44,
+        paddingTop: insets.top,
       }}
     >
       <BlurView

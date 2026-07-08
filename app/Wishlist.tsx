@@ -1,38 +1,31 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  Animated,
-  RefreshControl,
-  Dimensions,
-  StatusBar,
-  Alert,
-  Pressable,
-  StyleSheet,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  Ionicons,
-  Feather,
-  EvilIcons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
-import { router } from "expo-router";
+import { useCartStore } from "@/store/cartStore";
+import { EvilIcons, Feather, Ionicons } from "@expo/vector-icons";
+import { router, Stack } from "expo-router";
+import { getAuth } from "firebase/auth";
 import {
   collection,
-  onSnapshot,
   deleteDoc,
   doc,
-  query,
+  onSnapshot,
   orderBy,
+  query,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Animated,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { db } from "../firebaseConfig";
-import { useCartStore } from "@/store/cartStore";
-import { Stack } from "expo-router";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -363,11 +356,24 @@ const EmptyState: React.FC = () => {
       }}
     >
       {/* <Ionicons name="cloud-offline-outline" size={50} color="#F87387" /> */}
-      <MaterialCommunityIcons
-        name="heart-multiple-outline"
-        size={50}
-        color="#F87387"
-      />
+      <View
+        style={{
+          borderRadius: 44,
+          width: 100,
+          height: 100,
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 8,
+        }}
+      >
+        <Image
+          source={require("../assets/icons/wish-list.png")}
+          style={{ width: "100%", height: "100%" }}
+          resizeMode="contain"
+        />
+
+        {/* <FontAwesome6 name="sad-tear" size={50} color="#F87387" /> */}
+      </View>
       <Text
         style={{
           fontSize: 18,
@@ -389,7 +395,7 @@ const EmptyState: React.FC = () => {
         Save pieces you love and come back {"\n"} to them anytime.
       </Text>
 
-      <TouchableOpacity
+      {/* <TouchableOpacity
         onPress={() => router.push("/")}
         style={{
           marginTop: 24,
@@ -402,7 +408,7 @@ const EmptyState: React.FC = () => {
         <Text style={{ color: "#fff", fontWeight: "700" }}>
           Continue Shopping
         </Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 };

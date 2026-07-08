@@ -1,8 +1,10 @@
 // app/(tabs)/index.tsx
 import Header from "@/components/Header";
+import LoginRewardModal from "@/components/modal/Loginrewardmodal";
 import Similarproductsmodal from "@/components/modal/Similarproductsmodal";
 import CircleLoader from "@/components/ui/CircleLoader";
 import HomeSkeleton from "@/components/ui/HomeSkeleton";
+import { auth } from "@/firebaseConfig";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useRouter } from "expo-router";
@@ -516,7 +518,7 @@ const ProductCard = memo(
                 <Text
                   style={{
                     fontSize: 11,
-                    fontWeight: "700",
+                    fontWeight: "600",
                     marginLeft: 3,
                   }}
                 >
@@ -561,7 +563,7 @@ const ProductCard = memo(
   },
 );
 
-// ─── FilterModal ──────────────────────────────────────────────────────────────
+// ─── FilterModal --------------------------------------------------
 const FilterModal = memo(
   ({
     visible,
@@ -747,6 +749,9 @@ const FilterModal = memo(
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function Index() {
+  const [loginRewardModal, setLoginRewardModal] = useState(false);
+  // const [showSignup, setShowSignup] = useState(false);
+  const [claimedOffer, setClaimedOffer] = useState<number | null>(null);
   const [activeNav, setActiveNav] = useState("Women");
   const [searchText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -779,6 +784,24 @@ export default function Index() {
   const cardWidth = (width - 32 - 8) / 2;
   const productImageHeight = Math.round(cardWidth * 1.35);
   const prefetched = useRef(new Set<string>());
+  const offerPercentage = 15;
+
+  useEffect(() => {
+    if (!auth.currentUser) {
+      setLoginRewardModal(true);
+    }
+  }, []);
+
+  const handleClaim = () => {
+    setClaimedOffer(offerPercentage);
+    setLoginRewardModal(false);
+  };
+
+  const handleClose = () => {
+    setLoginRewardModal(false);
+  };
+
+  // prefetch images who show on screen
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     viewableItems.forEach(({ item }: any) => {
       item.images?.forEach((img: any) => {
@@ -1018,6 +1041,13 @@ export default function Index() {
         product={selectedProduct}
         onClose={() => setSimilarModal(false)}
       />
+
+      <LoginRewardModal
+        visible={loginRewardModal}
+        onClose={handleClose}
+        onClaim={handleClaim}
+        offerPercentage={offerPercentage}
+      />
     </View>
   );
 }
@@ -1052,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "900",
+    fontWeight: "700",
     color: "#1c1c1c",
   },
   categoryList: {
@@ -1139,8 +1169,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   productTitle: {
-    fontSize: 12.5,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "500",
     color: "#1a1a1a",
     lineHeight: 17,
   },
@@ -1152,7 +1182,7 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "600",
     color: "#1a1a1a",
   },
   comparePrice: {
@@ -1162,7 +1192,7 @@ const styles = StyleSheet.create({
   },
   discount: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#22a55b",
   },
   firstOrderOffer: {

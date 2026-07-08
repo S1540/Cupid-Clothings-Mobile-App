@@ -421,17 +421,17 @@ export default function ProductPage() {
           `${process.env.EXPO_PUBLIC_API_URL}/api/judgeme/product/${cleanId}`,
         );
 
-        const data = await res.text();
-        console.log(data);
+        const data = await res.json();
+        // console.log(data);
 
-        // if (data.success) {
-        //   setReviewSummary({
-        //     averageRating: data.averageRating,
-        //     reviewCount: data.reviewCount,
-        //   });
+        if (data.success) {
+          setReviewSummary({
+            averageRating: data.averageRating,
+            reviewCount: data.reviewCount,
+          });
 
-        //   setReviews(data.reviews);
-        // }
+          setReviews(data.reviews);
+        }
       } catch (e) {
         console.log(e);
       } finally {
