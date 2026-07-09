@@ -73,9 +73,7 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
       );
 
       await setDoc(doc(db, "users", response.user.uid), {
-        // userName: name,
         email,
-        // number,
         referralCode: generatedReferralCode,
         referredBy: referralCode.trim().toUpperCase() || null,
         totalReferrals: 0,
@@ -83,13 +81,33 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
         activeCoupon: null,
         walletBalance: 0,
         totalEarnings: 0,
+        // 👇 Add these two fields
+        cupidCoins: 0,
+        totalEarnedCoins: 0,
         rewardGiven: false,
         lastRewardAt: null,
         createdAt: new Date(),
       });
       if (referrerDoc) {
+        // Referrer ko reward
         await updateDoc(referrerDoc.ref, {
           totalReferrals: increment(1),
+          walletBalance: increment(79),
+          totalEarnings: increment(79),
+          referralEarnings: increment(79),
+          cupidCoins: increment(79),
+          totalEarnedCoins: increment(79),
+          lastRewardAt: new Date(),
+        });
+
+        // New user ko reward
+        await updateDoc(doc(db, "users", response.user.uid), {
+          walletBalance: increment(79),
+          totalEarnings: increment(79),
+          cupidCoins: increment(79),
+          totalEarnedCoins: increment(79),
+          rewardGiven: true,
+          lastRewardAt: new Date(),
         });
       }
 
@@ -99,9 +117,10 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
         setSuccess(false);
         closeModal();
       }, 2000);
-    } catch (error) {
+    } catch (error: any) {
       setLoading(false);
-      console.log(error);
+      console.error(error);
+      alert(error.message);
     }
   };
   useEffect(() => {
