@@ -29,7 +29,7 @@ interface LoginRewardModalProps {
 
 type Stage = "gift" | "opening" | "reward";
 
-const CARD_REVEAL_DELAY = 700;
+const CARD_REVEAL_DELAY = 300;
 
 const LoginRewardModal = React.memo(
   ({

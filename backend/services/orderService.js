@@ -150,35 +150,35 @@ const updateTrackingStatus = async (payload) => {
 
         // ------------ REFERRAL REWARD
 
-        if (userData.referredBy && !userData.rewardGiven) {
-          console.log("REFERRAL REWARD ELIGIBLE");
+        // if (userData.referredBy && !userData.rewardGiven) {
+        //   console.log("REFERRAL REWARD ELIGIBLE");
 
-          const referrerSnap = await db
-            .collection("users")
-            .where("referralCode", "==", userData.referredBy)
-            .limit(1)
-            .get();
+        //   const referrerSnap = await db
+        //     .collection("users")
+        //     .where("referralCode", "==", userData.referredBy)
+        //     .limit(1)
+        //     .get();
 
-          if (!referrerSnap.empty) {
-            const referrerRef = referrerSnap.docs[0].ref;
+        //   if (!referrerSnap.empty) {
+        //     const referrerRef = referrerSnap.docs[0].ref;
 
-            await referrerRef.update({
-              walletBalance: FieldValue.increment(79),
-              totalEarnings: FieldValue.increment(79),
-              referralEarnings: FieldValue.increment(79),
-              lastRewardAt: new Date(),
-            });
+        //     await referrerRef.update({
+        //       walletBalance: FieldValue.increment(79),
+        //       totalEarnings: FieldValue.increment(79),
+        //       referralEarnings: FieldValue.increment(79),
+        //       lastRewardAt: new Date(),
+        //     });
 
-            await userRef.update({
-              walletBalance: FieldValue.increment(79),
-              totalEarnings: FieldValue.increment(79),
-              rewardGiven: true,
-              lastRewardAt: new Date(),
-            });
+        //     await userRef.update({
+        //       walletBalance: FieldValue.increment(79),
+        //       totalEarnings: FieldValue.increment(79),
+        //       rewardGiven: true,
+        //       lastRewardAt: new Date(),
+        //     });
 
-            console.log("REFERRAL REWARD GIVEN");
-          }
-        }
+        //     console.log("REFERRAL REWARD GIVEN");
+        //   }
+        // }
       }
 
       break;
