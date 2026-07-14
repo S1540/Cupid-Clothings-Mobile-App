@@ -225,8 +225,7 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
                   value={password}
                   onChangeText={setPassword}
                   placeholder="Create password"
-                  placeholderTextColor="#aaa"
-                  secureTextEntry
+                  placeholderTextColor="#bbb"
                   className="border border-[#eee] rounded-xl px-4 py-4 text-[15px]"
                 />
               </View>
@@ -245,7 +244,6 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
                   className="border border-[#eee] rounded-xl px-4 py-4 text-[15px]"
                 />
               </View>
-
               {/* BUTTON */}
               <Pressable
                 onPress={signUp}

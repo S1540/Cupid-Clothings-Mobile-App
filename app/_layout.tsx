@@ -100,38 +100,35 @@ export default function RootLayout() {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
+    const frame = requestAnimationFrame(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    });
 
-    async function prepare() {
-      await SplashScreen.hideAsync();
+    timer = setTimeout(() => {
+      cancelAnimationFrame(frame);
+    }, 3000);
 
-      timer = setTimeout(() => {
-        setIsAppReady(true);
-      }, 1200);
-    }
-    prepare();
-
-    return () => clearTimeout(timer);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
   }, []);
 
-  if (!isAppReady) {
-    return <CustomSplash />;
-  }
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <Stack>
-          <Stack.Screen
-            name="(tabs)"
-            options={{
-              headerShown: false,
-            }}
-          />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
 
         {!hideBottomBar && <BottomBar />}
 
         <StatusBar style="dark" />
       </ThemeProvider>
+
+      {isAppReady === false && (
+        <CustomSplash onFinish={() => setIsAppReady(true)} />
+      )}
     </GestureHandlerRootView>
   );
 }

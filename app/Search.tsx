@@ -199,6 +199,11 @@ export default function SearchPage() {
               gap: 8,
             }}
           >
+            <Image
+              style={{ width: 80, height: 80, marginBottom: 8 }}
+              source={require("../assets/icons/no-results.png")}
+            />
+
             <Text style={{ fontSize: 16, fontWeight: "700", color: "#1a1a1a" }}>
               No results for "{query}"
             </Text>

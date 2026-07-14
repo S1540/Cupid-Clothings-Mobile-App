@@ -1,7 +1,13 @@
 // app/category/[handle].tsx
 import HomeSkeleton from "@/components/ui/HomeSkeleton";
+import ProductCard from "@/components/ui/ProductCrad";
 import { useCartStore } from "@/store/cartStore";
-import { EvilIcons, Feather, Ionicons } from "@expo/vector-icons";
+import {
+  EvilIcons,
+  Feather,
+  Ionicons,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -130,7 +136,6 @@ const getMenu = (): Promise<MenuTopCategory[]> => {
         return [];
       })
       .catch((err) => {
-        // Allow the next attempt to retry instead of caching a failure forever.
         cachedMenuPromise = null;
         throw err;
       });
@@ -139,58 +144,91 @@ const getMenu = (): Promise<MenuTopCategory[]> => {
 };
 
 // RESPONSIVE: productImageHeight prop so card image scales with screen
-const ProductCard = memo(
-  ({
-    item,
-    productImageHeight,
-  }: {
-    item: Product;
-    productImageHeight: number;
-  }) => {
-    const router = useRouter();
+// const ProductCard = memo(
+//   ({
+//     item,
+//     reviewSummery,
+//     productImageHeight,
+//   }: {
+//     item: Product;
+//     reviewSummery: any;
+//     productImageHeight: number;
+//   }) => {
+//     const router = useRouter();
+//     const productId = item.id.split("/").pop();
+//     const review = productId && reviewSummery ? reviewSummery[productId] : null;
 
-    return (
-      <Pressable
-        onPress={() =>
-          router.push({
-            pathname: "/product/[handle]",
-            params: { handle: item.handle },
-          })
-        }
-        style={styles.productCard}
-      >
-        <View style={[styles.productImageWrap, { height: productImageHeight }]}>
-          <Image
-            source={{ uri: item.images?.[0]?.url || "" }}
-            style={{ width: "100%", height: "100%" }}
-            resizeMode="cover"
-            fadeDuration={0}
-          />
-          <Pressable style={styles.wishlistBtn}>
-            <EvilIcons name="heart" size={24} color="black" />
-          </Pressable>
-        </View>
+//     return (
+//       <Pressable
+//         onPress={() =>
+//           router.push({
+//             pathname: "/product/[handle]",
+//             params: { handle: item.handle },
+//           })
+//         }
+//         style={styles.productCard}
+//       >
+//         <View style={[styles.productImageWrap, { height: productImageHeight }]}>
+//           <Image
+//             source={{ uri: item.images?.[0]?.url || "" }}
+//             style={{ width: "100%", height: "100%" }}
+//             resizeMode="cover"
+//             fadeDuration={0}
+//           />
+//           <Pressable
+//             //  onPressIn={handlePrefetch}
+//             style={styles.wishlistBtn}
+//             hitSlop={8}
+//           >
+//             {review && (
+//               <View
+//                 style={{
+//                   flexDirection: "row",
+//                   alignItems: "center",
+//                   marginTop: 4,
+//                   // marginBottom: 2,
+//                   paddingVertical: 1,
+//                   paddingHorizontal: 2,
+//                   borderRadius: 2,
+//                   backgroundColor: "rgba(255,255,255,0.55)",
+//                 }}
+//               >
+//                 <MaterialCommunityIcons name="star" size={13} color="#F59E0B" />
 
-        <View style={{ padding: 10, gap: 4 }}>
-          <Text numberOfLines={2} style={styles.productTitle}>
-            {item.title}
-          </Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>₹{item.price}</Text>
-            {item.compareAtPrice && (
-              <Text style={styles.comparePrice}>₹{item.compareAtPrice}</Text>
-            )}
-            {item.discountPercent && (
-              <Text style={styles.discount}>{item.discountPercent}% off</Text>
-            )}
-          </View>
-          <Text style={styles.firstOrderOffer}>30% off on first order</Text>
-        </View>
-      </Pressable>
-    );
-  },
-);
-ProductCard.displayName = "ProductCard";
+//                 <Text
+//                   style={{
+//                     fontSize: 11,
+//                     fontWeight: "600",
+//                     marginLeft: 3,
+//                   }}
+//                 >
+//                   {review.averageRating} ({review.reviewCount})
+//                 </Text>
+//               </View>
+//             )}
+//           </Pressable>
+//         </View>
+
+//         <View style={{ padding: 10, gap: 4 }}>
+//           <Text numberOfLines={2} style={styles.productTitle}>
+//             {item.title}
+//           </Text>
+//           <View style={styles.priceRow}>
+//             <Text style={styles.price}>₹{item.price}</Text>
+//             {item.compareAtPrice && (
+//               <Text style={styles.comparePrice}>₹{item.compareAtPrice}</Text>
+//             )}
+//             {item.discountPercent && (
+//               <Text style={styles.discount}>{item.discountPercent}% off</Text>
+//             )}
+//           </View>
+//           <Text style={styles.firstOrderOffer}>30% off on first order</Text>
+//         </View>
+//       </Pressable>
+//     );
+//   },
+// );
+// ProductCard.displayName = "ProductCard";
 
 // ---- Premium pill: press-scale animation via native driver ----
 const CategoryPill = memo(
@@ -327,20 +365,15 @@ CategoryStrip.displayName = "CategoryStrip";
 
 const Handle = () => {
   const [wishlist, setWishlist] = useState(false);
+  const [reviewSummery, setReviewSummery] = useState([]);
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const params = useLocalSearchParams<{ handle?: string | string[] }>();
   const router = useRouter();
-  const cartCount = useCartStore((state) => state.cartItems.length);
-
-  // The URL-driven handle. This never changes without a fresh navigation
-  // (a new screen instance), so it's safe to treat as the page's identity.
   const currentHandle: string = Array.isArray(params.handle)
     ? params.handle[0]
     : (params.handle ?? "");
 
-  // The in-page filter state. Starts equal to currentHandle ("ALL") and
-  // changes ONLY via strip taps — never touches the router/URL.
   const [activeHandle, setActiveHandle] = useState(currentHandle);
 
   const [categoryContext, setCategoryContext] =
@@ -425,6 +458,24 @@ const Handle = () => {
       ignore = true;
     };
   }, [activeHandle]);
+  // fetch review from db(firebasse)
+  useEffect(() => {
+    const fetchReviewSummery = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_API_URL}/api/judgeme/review-summary`,
+        );
+
+        const data = await response.json();
+        if (data.success) {
+          setReviewSummery(data.products);
+        }
+      } catch (error) {
+        console.log("Review summary error:", error);
+      }
+    };
+    fetchReviewSummery();
+  }, []);
 
   // Strip is [ALL, ...children] — ALL reuses the subcategory's own handle,
   // so selecting it re-fetches the exact same list the page opened with.
@@ -469,7 +520,7 @@ const Handle = () => {
                 <Feather name="search" size={26} color="#555" />
               </Pressable>
               <Pressable
-                onPress={() => setWishlist(!wishlist)}
+                onPress={() => router.push("/Wishlist")}
                 style={{ padding: 6 }}
               >
                 <Ionicons
@@ -483,11 +534,40 @@ const Handle = () => {
         }}
       />
 
-      {loading && products.length === 0 ? (
+      {loading ? (
         <View
           style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
         >
           <HomeSkeleton />
+        </View>
+      ) : products.length === 0 ? (
+        <View
+          style={{
+            flex: 1,
+            // justifyContent: "center",
+
+            alignItems: "center",
+            paddingHorizontal: 30,
+            backgroundColor: "#fff",
+          }}
+        >
+          <Image
+            style={{ width: 100, height: 100, marginBottom: 8, marginTop: 120 }}
+            source={require("../../assets/icons/empty.png")}
+          />
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "700",
+              color: "#1a1a1a",
+              marginBottom: 4,
+            }}
+          >
+            No products available as of now
+          </Text>
+          <Text style={{ fontSize: 13, color: "#999" }}>
+            Try different keywords
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -496,7 +576,12 @@ const Handle = () => {
           numColumns={2}
           style={{ backgroundColor: "#fff" }}
           renderItem={({ item }) => (
-            <ProductCard item={item} productImageHeight={productImageHeight} />
+            <ProductCard
+              item={item}
+              onPress={() => router.push(`/product/${item.handle}`)}
+              productImageHeight={productImageHeight}
+              reviewSummary={reviewSummery}
+            />
           )}
           columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}
@@ -537,12 +622,9 @@ const styles = StyleSheet.create({
   },
   wishlistBtn: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(255,255,255,0.45)",
+    bottom: 4,
+    left: 8,
     borderRadius: 20,
-    width: 30,
-    height: 30,
     alignItems: "center",
     justifyContent: "center",
   },

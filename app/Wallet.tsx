@@ -564,8 +564,8 @@ export default function WalletScreen() {
 
                 <View style={{ gap: 7 }}>
                   {[
-                    "You earn ₹171 when your friend's first order is delivered.",
-                    "Your friend gets ₹71 off on their first order.",
+                    "You earn ₹79 when your friend's first order is delivered.",
+                    "Your friend gets ₹79 off on their first order.",
                   ].map((txt, i) => (
                     <View
                       key={i}

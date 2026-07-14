@@ -33,6 +33,7 @@ import { runOnJS } from "react-native-reanimated";
 import Carousel from "react-native-reanimated-carousel";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import "../../global.css";
+import ProductCard from "@/components/ui/ProductCrad";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type Subcategory = { title: string; handle: string; image: string | null };
@@ -378,190 +379,190 @@ const ImageDots = memo(
 // This is the same pattern used by production apps like Myntra/Zara/Ajio:
 // declarative gesture arbitration instead of manual responder negotiation.
 
-type ProductImageSwiperProps = {
-  images: { url: string; alt: string }[];
-  height: number;
-  onPress: () => void;
-};
+// type ProductImageSwiperProps = {
+//   images: { url: string; alt: string }[];
+//   height: number;
+//   onPress: () => void;
+// };
 
-const ProductImageSwiper = memo(
-  ({ images, height, onPress }: ProductImageSwiperProps) => {
-    const [activeIndex, setActiveIndex] = useState(0);
-    const totalImages = images.length;
+// const ProductImageSwiper = memo(
+//   ({ images, height, onPress }: ProductImageSwiperProps) => {
+//     const [activeIndex, setActiveIndex] = useState(0);
+//     const totalImages = images.length;
 
-    const goNext = useCallback(() => {
-      setActiveIndex((prev) => (prev < totalImages - 1 ? prev + 1 : prev));
-    }, [totalImages]);
+//     const goNext = useCallback(() => {
+//       setActiveIndex((prev) => (prev < totalImages - 1 ? prev + 1 : prev));
+//     }, [totalImages]);
 
-    const goPrev = useCallback(() => {
-      setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
-    }, []);
+//     const goPrev = useCallback(() => {
+//       setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
+//     }, []);
 
-    const panGesture = useMemo(
-      () =>
-        Gesture.Pan()
-          .activeOffsetX([-10, 10])
-          .failOffsetY([-VERTICAL_CANCEL_THRESHOLD, VERTICAL_CANCEL_THRESHOLD])
-          .onEnd((e) => {
-            "worklet";
-            if (totalImages <= 1) return;
-            if (e.translationX < -SWIPE_THRESHOLD) {
-              runOnJS(goNext)();
-            } else if (e.translationX > SWIPE_THRESHOLD) {
-              runOnJS(goPrev)();
-            }
-          }),
-      [totalImages, goNext, goPrev],
-    );
+//     const panGesture = useMemo(
+//       () =>
+//         Gesture.Pan()
+//           .activeOffsetX([-10, 10])
+//           .failOffsetY([-VERTICAL_CANCEL_THRESHOLD, VERTICAL_CANCEL_THRESHOLD])
+//           .onEnd((e) => {
+//             "worklet";
+//             if (totalImages <= 1) return;
+//             if (e.translationX < -SWIPE_THRESHOLD) {
+//               runOnJS(goNext)();
+//             } else if (e.translationX > SWIPE_THRESHOLD) {
+//               runOnJS(goPrev)();
+//             }
+//           }),
+//       [totalImages, goNext, goPrev],
+//     );
 
-    const tapGesture = useMemo(
-      () =>
-        Gesture.Tap()
-          .maxDistance(10)
-          .onEnd((_e, success) => {
-            "worklet";
-            if (success) {
-              runOnJS(onPress)();
-            }
-          }),
-      [onPress],
-    );
+//     const tapGesture = useMemo(
+//       () =>
+//         Gesture.Tap()
+//           .maxDistance(10)
+//           .onEnd((_e, success) => {
+//             "worklet";
+//             if (success) {
+//               runOnJS(onPress)();
+//             }
+//           }),
+//       [onPress],
+//     );
 
-    const composedGesture = useMemo(
-      () => Gesture.Exclusive(panGesture, tapGesture),
-      [panGesture, tapGesture],
-    );
+//     const composedGesture = useMemo(
+//       () => Gesture.Exclusive(panGesture, tapGesture),
+//       [panGesture, tapGesture],
+//     );
 
-    const currentImageUrl = images[activeIndex]?.url ?? DEFAULT_IMAGE;
+//     const currentImageUrl = images[activeIndex]?.url ?? DEFAULT_IMAGE;
 
-    return (
-      <GestureDetector gesture={composedGesture}>
-        <View style={[styles.productImageWrap, { height }]}>
-          <Image
-            source={{ uri: currentImageUrl }}
-            style={StyleSheet.absoluteFillObject}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={120}
-          />
-          <ImageDots count={totalImages} activeIndex={activeIndex} />
-        </View>
-      </GestureDetector>
-    );
-  },
-);
+//     return (
+//       <GestureDetector gesture={composedGesture}>
+//         <View style={[styles.productImageWrap, { height }]}>
+//           <Image
+//             source={{ uri: currentImageUrl }}
+//             style={StyleSheet.absoluteFillObject}
+//             contentFit="cover"
+//             cachePolicy="memory-disk"
+//             transition={120}
+//           />
+//           <ImageDots count={totalImages} activeIndex={activeIndex} />
+//         </View>
+//       </GestureDetector>
+//     );
+//   },
+// );
 
-// ─── ProductCard ──────────────────────────────────────────────────────────────
-const ProductCard = memo(
-  ({
-    item,
-    productImageHeight,
-    reviewSummary,
-    onPress,
-  }: {
-    item: Product;
-    productImageHeight: number;
-    reviewSummary: any;
-    onPress: () => void;
-  }) => {
-    const router = useRouter();
-    const productId = item.id.split("/").pop();
-    const review = productId && reviewSummary ? reviewSummary[productId] : null;
-    // console.log(review);
+// // ─── ProductCard ──────────────────────────────────────────────────────────────
+// const ProductCard = memo(
+//   ({
+//     item,
+//     productImageHeight,
+//     reviewSummary,
+//     onPress,
+//   }: {
+//     item: Product;
+//     productImageHeight: number;
+//     reviewSummary: any;
+//     onPress: () => void;
+//   }) => {
+//     const router = useRouter();
+//     const productId = item.id.split("/").pop();
+//     const review = productId && reviewSummary ? reviewSummary[productId] : null;
+//     // console.log(review);
 
-    const handlePress = useCallback(() => {
-      router.push({
-        pathname: "/product/[handle]",
-        params: { handle: item.handle },
-      });
-    }, [item.handle]);
+//     const handlePress = useCallback(() => {
+//       router.push({
+//         pathname: "/product/[handle]",
+//         params: { handle: item.handle },
+//       });
+//     }, [item.handle]);
 
-    const handlePrefetch = useCallback(() => {
-      router.prefetch(`/product/${item.handle}`);
-    }, [item.handle]);
-    const images = useMemo(
-      () =>
-        item.images?.length ? item.images : [{ url: DEFAULT_IMAGE, alt: "" }],
-      [item.images],
-    );
+//     const handlePrefetch = useCallback(() => {
+//       router.prefetch(`/product/${item.handle}`);
+//     }, [item.handle]);
+//     const images = useMemo(
+//       () =>
+//         item.images?.length ? item.images : [{ url: DEFAULT_IMAGE, alt: "" }],
+//       [item.images],
+//     );
 
-    return (
-      <View style={styles.productCard}>
-        {/* Swipeable image — tap also handled inside */}
-        <View>
-          <ProductImageSwiper
-            images={images}
-            height={productImageHeight}
-            onPress={handlePress}
-          />
+//     return (
+//       <View style={styles.productCard}>
+//         {/* Swipeable image — tap also handled inside */}
+//         <View>
+//           <ProductImageSwiper
+//             images={images}
+//             height={productImageHeight}
+//             onPress={handlePress}
+//           />
 
-          <Pressable
-            onPressIn={handlePrefetch}
-            style={styles.wishlistBtn}
-            hitSlop={8}
-          >
-            {review && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginTop: 4,
-                  // marginBottom: 2,
-                  paddingVertical: 1,
-                  paddingHorizontal: 2,
-                  borderRadius: 2,
-                  backgroundColor: "rgba(255,255,255,0.55)",
-                }}
-              >
-                <MaterialCommunityIcons name="star" size={13} color="#F59E0B" />
+//           <Pressable
+//             onPressIn={handlePrefetch}
+//             style={styles.wishlistBtn}
+//             hitSlop={8}
+//           >
+//             {review && (
+//               <View
+//                 style={{
+//                   flexDirection: "row",
+//                   alignItems: "center",
+//                   marginTop: 4,
+//                   // marginBottom: 2,
+//                   paddingVertical: 1,
+//                   paddingHorizontal: 2,
+//                   borderRadius: 2,
+//                   backgroundColor: "rgba(255,255,255,0.55)",
+//                 }}
+//               >
+//                 <MaterialCommunityIcons name="star" size={13} color="#F59E0B" />
 
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: "600",
-                    marginLeft: 3,
-                  }}
-                >
-                  {review.averageRating} ({review.reviewCount})
-                </Text>
-              </View>
-            )}
-          </Pressable>
-          <Pressable
-            onPress={onPress}
-            onPressIn={handlePrefetch}
-            style={styles.similerBtn}
-            hitSlop={8}
-          >
-            <MaterialCommunityIcons
-              name="cards-outline"
-              size={24}
-              color="black"
-              opacity={0.7}
-            />
-          </Pressable>
-        </View>
+//                 <Text
+//                   style={{
+//                     fontSize: 11,
+//                     fontWeight: "600",
+//                     marginLeft: 3,
+//                   }}
+//                 >
+//                   {review.averageRating} ({review.reviewCount})
+//                 </Text>
+//               </View>
+//             )}
+//           </Pressable>
+//           <Pressable
+//             onPress={onPress}
+//             onPressIn={handlePrefetch}
+//             style={styles.similerBtn}
+//             hitSlop={8}
+//           >
+//             <MaterialCommunityIcons
+//               name="cards-outline"
+//               size={24}
+//               color="black"
+//               opacity={0.7}
+//             />
+//           </Pressable>
+//         </View>
 
-        {/* Info section — separate Pressable so the whole card is tappable */}
-        <Pressable onPress={handlePress} style={{ padding: 10, gap: 4 }}>
-          <Text numberOfLines={2} style={styles.productTitle}>
-            {item.title}
-          </Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>₹{item.price}</Text>
-            {item.compareAtPrice && (
-              <Text style={styles.comparePrice}>₹{item.compareAtPrice}</Text>
-            )}
-            {item.discountPercent && (
-              <Text style={styles.discount}>{item.discountPercent}% off</Text>
-            )}
-          </View>
-          <Text style={styles.firstOrderOffer}>30% off on first order</Text>
-        </Pressable>
-      </View>
-    );
-  },
-);
+//         {/* Info section — separate Pressable so the whole card is tappable */}
+//         <Pressable onPress={handlePress} style={{ padding: 10, gap: 4 }}>
+//           <Text numberOfLines={2} style={styles.productTitle}>
+//             {item.title}
+//           </Text>
+//           <View style={styles.priceRow}>
+//             <Text style={styles.price}>₹{item.price}</Text>
+//             {item.compareAtPrice && (
+//               <Text style={styles.comparePrice}>₹{item.compareAtPrice}</Text>
+//             )}
+//             {item.discountPercent && (
+//               <Text style={styles.discount}>{item.discountPercent}% off</Text>
+//             )}
+//           </View>
+//           <Text style={styles.firstOrderOffer}>30% off on first order</Text>
+//         </Pressable>
+//       </View>
+//     );
+//   },
+// );
 
 // ─── FilterModal --------------------------------------------------
 const FilterModal = memo(
@@ -788,7 +789,7 @@ export default function Index() {
 
   useEffect(() => {
     if (!auth.currentUser) {
-      setLoginRewardModal(true);
+      setTimeout(() => setLoginRewardModal(true), 5000);
     }
   }, []);
 

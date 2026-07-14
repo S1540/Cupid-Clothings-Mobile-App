@@ -71,6 +71,12 @@ const FAQS: FAQItem[] = [
   },
 ];
 
+// UI: shared, softer ink tones (matches the Cart screen's lighter palette —
+// pure near-black is reserved for CTA buttons / prices only, everything
+// else uses one of these two grays).
+const INK_DARK = "#333333";
+const INK_MID = "#7A7A7A";
+
 // ─── ICON RENDERER ────────────────────────────────────────────────────────────
 
 const Icon = memo(
@@ -99,13 +105,15 @@ const Icon = memo(
 
 // ─── SECTION TITLE ────────────────────────────────────────────────────────────
 
+// UI: weight 700 → 600 and pure #1C1C1C → INK_DARK (#333) so section
+// headers read as clean/confident instead of heavy-black, matching Cart.
 const SectionTitle = memo(({ title }: { title: string }) => (
   <Text
     style={{
-      fontSize: 17,
-      fontWeight: "700",
-      color: "#1C1C1C",
-      letterSpacing: -0.2,
+      fontSize: 16,
+      fontWeight: "600",
+      color: INK_DARK,
+      letterSpacing: -0.1,
       marginBottom: 14,
       paddingHorizontal: 16,
     }}
@@ -152,7 +160,7 @@ const SearchBar = memo(
             flexDirection: "row",
             alignItems: "center",
             backgroundColor: "#fff",
-            borderRadius: 6,
+            borderRadius: 8,
             borderWidth: 1.5,
             borderColor,
             paddingHorizontal: 14,
@@ -175,8 +183,8 @@ const SearchBar = memo(
             placeholderTextColor="#bbb"
             style={{
               flex: 1,
-              fontSize: 15,
-              color: "#1C1C1C",
+              fontSize: 14,
+              color: INK_DARK,
               fontWeight: "400",
               padding: 0,
             }}
@@ -233,7 +241,7 @@ const FAQAccordion = memo(
       <View
         style={{
           backgroundColor: "#fff",
-          borderRadius: 6,
+          borderRadius: 8,
           marginHorizontal: 16,
           marginBottom: 8,
           borderWidth: 1,
@@ -256,15 +264,21 @@ const FAQAccordion = memo(
             paddingHorizontal: 16,
             paddingVertical: 16,
             gap: 12,
+            // UI: 44dp minimum touch target height for the accordion header.
+            minHeight: 44,
           }}
         >
+          {/* UI: weight 600 → 500 and #1C1C1C → INK_DARK for the closed
+              state, so questions read as clean regular text; the pink
+              accent on open state is untouched — that's the one place bold
+              color should stand out. */}
           <Text
             style={{
               flex: 1,
-              fontSize: 14,
-              fontWeight: "600",
-              color: isOpen ? "#F87387" : "#1C1C1C",
-              lineHeight: 20,
+              fontSize: 13.5,
+              fontWeight: isOpen ? "600" : "500",
+              color: isOpen ? "#F87387" : INK_DARK,
+              lineHeight: 19,
               letterSpacing: -0.1,
             }}
           >
@@ -298,10 +312,10 @@ const FAQAccordion = memo(
             />
             <Text
               style={{
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: "400",
-                color: "#7A7A7A",
-                lineHeight: 22,
+                color: INK_MID,
+                lineHeight: 21,
               }}
             >
               {item.answer}
@@ -339,7 +353,7 @@ const ContactSection = memo(() => {
         style={{
           marginHorizontal: 16,
           backgroundColor: "#fff",
-          borderRadius: 6,
+          borderRadius: 8,
           borderWidth: 1,
           borderColor: "#f0f0f0",
           overflow: "hidden",
@@ -372,15 +386,19 @@ const ContactSection = memo(() => {
             resizeMode="contain"
           />
           <View style={{ alignItems: "center", gap: 4 }}>
-            <Text style={{ fontSize: 15, fontWeight: "700", color: "#1C1C1C" }}>
+            {/* UI: weight 700 → 600, #1C1C1C → INK_DARK — consistent with
+                the rest of the lighter header treatment. */}
+            <Text
+              style={{ fontSize: 14.5, fontWeight: "600", color: INK_DARK }}
+            >
               We're here for you
             </Text>
             <Text
               style={{
-                fontSize: 13,
-                color: "#7A7A7A",
+                fontSize: 12.5,
+                color: INK_MID,
                 textAlign: "center",
-                lineHeight: 19,
+                lineHeight: 18,
                 paddingHorizontal: 32,
               }}
             >
@@ -400,7 +418,9 @@ const ContactSection = memo(() => {
 
         {/* Buttons */}
         <View style={{ padding: 16, gap: 10 }}>
-          {/* Request a Call — primary active button */}
+          {/* Request a Call — primary active button.
+              UI: kept bold/700 — same as Cart's "Place Order" CTA, this is
+              the one place on the screen that should stay strong. */}
           <Animated.View style={{ transform: [{ scale: scale1 }] }}>
             <TouchableOpacity
               onPress={() =>
@@ -417,12 +437,15 @@ const ContactSection = memo(() => {
                 justifyContent: "center",
                 gap: 10,
                 backgroundColor: "#F87387",
-                borderRadius: 6,
+                borderRadius: 8,
                 paddingVertical: 14,
+                minHeight: 44,
               }}
             >
-              <Fontisto name="email" size={18} color="#fff" />
-              <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>
+              <Fontisto name="email" size={17} color="#fff" />
+              <Text
+                style={{ fontSize: 14.5, fontWeight: "700", color: "#fff" }}
+              >
                 E-mail Support
               </Text>
             </TouchableOpacity>
@@ -445,15 +468,16 @@ const ContactSection = memo(() => {
                 justifyContent: "center",
                 gap: 10,
                 backgroundColor: "#fff",
-                borderRadius: 6,
+                borderRadius: 8,
                 paddingVertical: 14,
                 borderWidth: 1,
                 borderColor: "#25D366",
+                minHeight: 44,
               }}
             >
-              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+              <Ionicons name="logo-whatsapp" size={17} color="#25D366" />
               <Text
-                style={{ fontSize: 15, fontWeight: "700", color: "#25D366" }}
+                style={{ fontSize: 14.5, fontWeight: "700", color: "#25D366" }}
               >
                 WhatsApp Support
               </Text>
@@ -562,7 +586,7 @@ export default function HelpCenter() {
           headerShadowVisible: false,
           headerStyle: { backgroundColor: "#fff7f8" },
           headerLeft: () => (
-            <Pressable onPress={() => router.back()}>
+            <Pressable onPress={() => router.back()} hitSlop={10}>
               <EvilIcons name="chevron-left" size={34} color="#1a1a1a" />
             </Pressable>
           ),

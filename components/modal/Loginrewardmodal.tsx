@@ -19,6 +19,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
 interface LoginRewardModalProps {
   visible: boolean;
@@ -36,11 +37,12 @@ const LoginRewardModal = React.memo(
     visible,
     onClose,
     onClaim,
-    offerPercentage = 15,
+    offerPercentage = 10,
   }: LoginRewardModalProps) => {
     const [stage, setStage] = useState<Stage>("gift");
     const tappedRef = useRef(false);
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const { height: screenHeight } = useWindowDimensions();
 
     // Idle floating gift
@@ -207,15 +209,21 @@ const LoginRewardModal = React.memo(
             <View style={styles.sheetHandle} />
 
             <Text style={styles.cardEyebrow}>🎉 Congratulations!</Text>
-            <Text style={styles.cardOffer}>{offerPercentage}% OFF</Text>
+            <Text style={styles.cardOffer}> 10% OFF</Text>
             <Text style={styles.cardBody}>
               Your welcome reward has been unlocked.
             </Text>
             <Text style={styles.cardSubBody}>
-              Login now to claim your exclusive offer.
+              Login now and use code WELCUPID10 to claim your offer.
             </Text>
 
-            <Pressable style={styles.primaryButton} onPress={onClaim}>
+            <Pressable
+              style={styles.primaryButton}
+              onPress={() => {
+                onClose();
+                router.push("/Account");
+              }}
+            >
               <Text style={styles.primaryButtonText}>Login & Claim Offer</Text>
             </Pressable>
 

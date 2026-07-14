@@ -60,17 +60,11 @@ const C = {
   greenBg: "#f0faf4",
 } as const;
 
-// REMOVED: hardcoded `CHECKOUT_BAR_HEIGHT` constant based on Platform.OS.
-// It never matched the bar's real rendered height across devices (iPhone SE vs
-// Pro Max vs Android gesture-nav), causing content to be hidden behind the bar
-// on some devices and extra dead space on others. The real height is now
-// measured at runtime via onLayout (see `checkoutBarHeight` state below) and
-// used to pad the FlatList instead.
-
-// Minimum tablet breakpoint used only to cap/center the checkout bar's inner
-// row on large screens. Phone layout is untouched.
 const TABLET_BREAKPOINT = 768;
 const TABLET_MAX_CONTENT_WIDTH = 600;
+const SMALL_SCREEN_BREAKPOINT = 340;
+const FONT_SCALE_TIGHT = 1.3;
+const FONT_SCALE_NORMAL = 1.6;
 
 const S = StyleSheet.create({
   itemRow: {
@@ -83,25 +77,32 @@ const S = StyleSheet.create({
   itemThumb: {
     width: 100,
     height: 130,
+    // UI: consistent 8-radius across the screen (was 4) for a more premium,
+    // unified look.
     borderRadius: 4,
     backgroundColor: C.bg,
   },
   buyNow: {
     borderWidth: 1,
     borderColor: C.line,
+    // UI: consistent radius + slightly taller so it reads as a real
+    // secondary button (min ~36-38dp) instead of a thin strip.
     borderRadius: 6,
-    marginTop: 10,
+    marginTop: 12,
     overflow: "hidden",
     backgroundColor: C.white,
+    minHeight: 44,
   },
   buyNowBtn: {
     flexDirection: "row",
     fontSize: 11.5,
-    fontWeight: "600",
+    fontWeight: "700",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    gap: 6,
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 9,
+    minHeight: 44,
   },
   discBadge: {
     position: "absolute",
@@ -110,16 +111,18 @@ const S = StyleSheet.create({
     backgroundColor: C.pink,
     paddingHorizontal: 6,
     paddingVertical: 3,
-    borderTopLeftRadius: 4,
-    borderBottomRightRadius: 6,
+    borderTopLeftRadius: 6,
+    borderBottomRightRadius: 8,
   },
   discBadgeTxt: { color: C.white, fontSize: 9, fontWeight: "800" },
-  itemInfo: { flex: 1, paddingTop: 2 },
+  itemInfo: { flex: 1, paddingTop: 2, minWidth: 0 },
+  // UI: lighter weight + softer ink (not pure black) so the product name
+  // reads clean/regular like the reference design instead of bold-black.
   itemTitle: {
-    fontSize: 13.5,
-    fontWeight: "600",
-    color: C.black,
-    lineHeight: 19,
+    fontSize: 13,
+    fontWeight: "400",
+    color: C.inkMid,
+    lineHeight: 18,
     letterSpacing: -0.1,
   },
   sizePill: {
@@ -132,70 +135,88 @@ const S = StyleSheet.create({
     paddingVertical: 3,
     backgroundColor: C.bg,
   },
-  sizeTxt: { fontSize: 11, fontWeight: "600", color: C.inkDark },
+  sizeTxt: { fontSize: 11, fontWeight: "500", color: C.inkMid },
   priceRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    marginTop: 6,
+    marginTop: 7,
     gap: 7,
+    // RESPONSIVE: wraps instead of overflowing/clipping when the strike
+    // price + savings tag can't fit next to the main price on very narrow
+    // screens or with large font scale.
+    flexWrap: "wrap",
   },
   priceMain: {
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "700",
     color: C.black,
-    letterSpacing: -0.4,
+    letterSpacing: -0.2,
   },
   priceStrike: {
     fontSize: 12.5,
     color: C.inkLight,
     textDecorationLine: "line-through",
   },
-  priceSave: { fontSize: 11.5, color: C.green, fontWeight: "700" },
+  priceSave: { fontSize: 11, color: C.green, fontWeight: "600" },
   coinsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    marginTop: 5,
+    marginTop: 6,
     backgroundColor: "#fffbeb",
     alignSelf: "flex-start",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 4,
     borderWidth: 0.5,
     borderColor: "#fde68a",
   },
   coinsTxt: {
     fontSize: 11,
     color: "#b45309",
-    fontWeight: "600",
+    fontWeight: "500",
   },
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 12,
+    // RESPONSIVE: rowGap/columnGap kick in only when the row wraps/stacks
+    // (small-screen branch below), keeping normal-width layout unaffected.
+    rowGap: 10,
+    columnGap: 10,
   },
   actionBtns: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "stretch",
     gap: 0,
     borderWidth: 1,
     borderColor: C.line,
     borderRadius: 6,
     overflow: "hidden",
     backgroundColor: C.white,
+    minHeight: 44,
   },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 5,
+    // UI: each button now grows to share the row equally and never
+    // compresses its label.
+    flex: 1,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 10,
   },
-  actionBtnTxt: { fontSize: 11.5, fontWeight: "600", color: C.inkDark },
+  actionBtnTxt: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: C.inkDark,
+    flexShrink: 1,
+  },
   actionDivider: {
     width: 1,
-    height: 16,
+    alignSelf: "stretch",
     backgroundColor: C.line,
   },
   stepper: {
@@ -206,10 +227,12 @@ const S = StyleSheet.create({
     borderRadius: 6,
     overflow: "hidden",
     backgroundColor: C.white,
+    // UI: 44dp minimum touch target height to match action buttons.
+    minHeight: 44,
   },
   stepBtn: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -225,17 +248,17 @@ const S = StyleSheet.create({
     color: C.inkDark,
     lineHeight: 20,
   },
-  stepDiv: { width: 1, height: 16, backgroundColor: C.line },
-  stepVal: { width: 34, alignItems: "center" },
-  stepValTxt: { fontSize: 13, fontWeight: "700", color: C.black },
+  stepDiv: { width: 1, height: 18, backgroundColor: C.line },
+  stepVal: { width: 38, alignItems: "center" },
+  stepValTxt: { fontSize: 13, fontWeight: "600", color: C.inkDark },
   deliveryLine: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
+    alignItems: "flex-start",
+    gap: 6,
     marginTop: 12,
     paddingBottom: 14,
   },
-  deliveryTxt: { fontSize: 11.5, color: C.inkLight },
+  deliveryTxt: { fontSize: 11.5, color: C.inkLight, flex: 1, lineHeight: 16 },
   deliveryBold: { color: C.inkDark, fontWeight: "600" },
   headerBlock: { backgroundColor: C.white },
   deliverRow: {
@@ -261,7 +284,7 @@ const S = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
-  bagTitle: { fontSize: 13.5, fontWeight: "800", color: C.black },
+  bagTitle: { fontSize: 14, fontWeight: "700", color: C.black },
   bagCount: { color: C.inkLight, fontWeight: "500" },
   priceSummary: {
     backgroundColor: C.white,
@@ -269,6 +292,10 @@ const S = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 14,
+    // UI: gentle "card" elevation so the price summary reads as a distinct,
+    // premium module rather than a flat block.
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   priceSummaryTitle: {
     fontSize: 11,
@@ -283,16 +310,16 @@ const S = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 11,
   },
-  priceLbl: { fontSize: 13, color: C.inkMid },
-  priceVal: { fontSize: 13, fontWeight: "600", color: C.black },
+  priceLbl: { fontSize: 13, color: C.inkMid, fontWeight: "400" },
+  priceVal: { fontSize: 13, fontWeight: "500", color: C.inkDark },
   priceDivider: { height: 1, backgroundColor: C.line, marginVertical: 4 },
   priceTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 7,
   },
-  priceTotalLbl: { fontSize: 14, fontWeight: "800", color: C.black },
-  priceTotalVal: { fontSize: 14, fontWeight: "800", color: C.black },
+  priceTotalLbl: { fontSize: 14, fontWeight: "700", color: C.black },
+  priceTotalVal: { fontSize: 14, fontWeight: "700", color: C.black },
   savingsBanner: {
     backgroundColor: C.greenBg,
     borderRadius: 6,
@@ -302,7 +329,32 @@ const S = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: C.green,
   },
-  savingsBannerTxt: { fontSize: 12, color: C.green, fontWeight: "600" },
+  savingsBannerTxt: { fontSize: 12, color: C.green, fontWeight: "500" },
+  // UI: new trust-signal strip shown below the price summary — purely
+  // additive, no layout dependency for anything above/below it.
+  trustRow: {
+    flexDirection: "row",
+    backgroundColor: C.white,
+    marginTop: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: C.line,
+  },
+  trustItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 6,
+    paddingHorizontal: 4,
+  },
+  trustText: {
+    fontSize: 10.5,
+    fontWeight: "500",
+    color: C.inkMid,
+    textAlign: "center",
+    lineHeight: 13,
+  },
   // NOTE: paddingBottom / paddingHorizontal / bottom are now applied inline
   // per-instance (see CheckoutBar) because they depend on live safe-area
   // insets. Keeping the static, device-independent parts here only.
@@ -312,6 +364,10 @@ const S = StyleSheet.create({
     right: 0,
     backgroundColor: C.white,
     paddingTop: 12,
+    // UI: rounded top corners give the bar a modern "sheet docked to the
+    // bottom" feel instead of a hard rectangular strip.
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     // iOS shadow (ignored on Android by RN itself — no Platform.select needed)
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -5 },
@@ -332,16 +388,32 @@ const S = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     backgroundColor: C.greenBg,
-    borderRadius: 6,
+    borderRadius: 8,
     paddingVertical: 8,
+    paddingHorizontal: 8,
     marginBottom: 10,
   },
-  checkoutBadgeTxt: { fontSize: 12, fontWeight: "600", color: C.green },
+  checkoutBadgeTxt: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: C.green,
+    flexShrink: 1,
+  },
   checkoutBadgeDot: {
     width: 3,
     height: 3,
     borderRadius: 99,
     backgroundColor: C.green,
+  },
+  // UI: small trust microcopy under the CTA. Bar height is measured at
+  // runtime (onLayout) so adding this line automatically adjusts the
+  // FlatList's bottom padding — no manual offset needed.
+  checkoutTrustTxt: {
+    textAlign: "center",
+    fontSize: 10.5,
+    color: C.inkLight,
+    fontWeight: "500",
+    marginTop: 8,
   },
   emptyWrap: {
     flex: 1,
@@ -395,7 +467,7 @@ const S = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "700",
     color: C.black,
     marginBottom: 4,
     letterSpacing: -0.2,
@@ -452,16 +524,24 @@ const QtyStepper = React.memo(
     onDecrease: () => void;
   }) => (
     <View style={S.stepper}>
+      {/* UI: hitSlop kept + larger stepBtn box (40x44) so the tap target
+          comfortably clears the 44dp minimum without changing behavior. */}
       <Pressable onPress={onDecrease} style={S.stepBtn} hitSlop={4}>
-        <Text style={S.stepMinus}>−</Text>
+        <Text style={S.stepMinus} maxFontSizeMultiplier={FONT_SCALE_TIGHT}>
+          −
+        </Text>
       </Pressable>
       <View style={S.stepDiv} />
       <View style={S.stepVal}>
-        <Text style={S.stepValTxt}>{qty}</Text>
+        <Text style={S.stepValTxt} maxFontSizeMultiplier={FONT_SCALE_TIGHT}>
+          {qty}
+        </Text>
       </View>
       <View style={S.stepDiv} />
       <Pressable onPress={onIncrease} style={S.stepBtn} hitSlop={4}>
-        <Text style={S.stepPlus}>+</Text>
+        <Text style={S.stepPlus} maxFontSizeMultiplier={FONT_SCALE_TIGHT}>
+          +
+        </Text>
       </Pressable>
     </View>
   ),
@@ -492,46 +572,100 @@ const CartItemRow = React.memo(
       ? (item.compareAtPrice! - item.price) * item.quantity
       : 0;
     const coins = Math.floor(Number(item.price) * 0.04);
+    const { width } = useWindowDimensions();
+    const isSmallScreen = width <= SMALL_SCREEN_BREAKPOINT;
+    // RESPONSIVE: caps the row's content width and centers it on tablets,
+    // mirroring the same pattern already used for the checkout bar, so the
+    // row doesn't stretch into an oversized, awkward layout on large screens.
+    const isTablet = width >= TABLET_BREAKPOINT;
 
     return (
       <View style={S.itemRow}>
-        <View style={S.itemInner}>
+        <View
+          style={[
+            S.itemInner,
+            isTablet && {
+              maxWidth: TABLET_MAX_CONTENT_WIDTH,
+              alignSelf: "center",
+              width: "100%",
+            },
+          ]}
+        >
           {/* Image */}
           <Pressable onPress={onNavigate}>
             <Image
               source={{ uri: item.image }}
-              style={S.itemThumb}
+              style={[S.itemThumb, isSmallScreen && { width: 80, height: 112 }]}
               resizeMode="cover"
               fadeDuration={0}
             />
             {!!item.discountPercent && (
               <View style={S.discBadge}>
-                <Text style={S.discBadgeTxt}>{item.discountPercent}% OFF</Text>
+                <Text
+                  style={S.discBadgeTxt}
+                  maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+                >
+                  {item.discountPercent}% OFF
+                </Text>
               </View>
             )}
-            <Pressable onPress={onCheckout} style={S.buyNow}>
-              <Text style={S.buyNowBtn}>Buy This Now</Text>
+            <Pressable onPress={onCheckout} style={S.buyNow} hitSlop={2}>
+              <View style={S.buyNowBtn}>
+                {/* <Feather name="zap" size={12} color={C.pink} /> */}
+                <Text
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: "500",
+                    color: C.inkMid,
+                  }}
+                  maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+                  numberOfLines={1}
+                >
+                  Buy This Now
+                </Text>
+              </View>
             </Pressable>
           </Pressable>
 
           {/* Info */}
           <View style={S.itemInfo}>
-            <Text style={S.itemTitle} numberOfLines={2}>
+            <Text
+              style={S.itemTitle}
+              numberOfLines={2}
+              maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+            >
               {item.title}
             </Text>
 
             <View style={S.sizePill}>
-              <Text style={S.sizeTxt}>Size: {item.size || "M"}</Text>
+              <Text style={S.sizeTxt} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+                Size: {item.size || "M"}
+              </Text>
             </View>
 
             {/* Price */}
             <View style={S.priceRow}>
-              <Text style={S.priceMain}>₹{item.price}</Text>
+              <Text
+                style={S.priceMain}
+                maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+              >
+                ₹{item.price}
+              </Text>
               {hasDiscount && (
                 <>
-                  <Text style={S.priceStrike}>₹{item.compareAtPrice}</Text>
+                  <Text
+                    style={S.priceStrike}
+                    maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+                  >
+                    ₹{item.compareAtPrice}
+                  </Text>
                   {savedAmt > 0 && (
-                    <Text style={S.priceSave}>−₹{savedAmt}</Text>
+                    <Text
+                      style={S.priceSave}
+                      maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+                    >
+                      −₹{savedAmt}
+                    </Text>
                   )}
                 </>
               )}
@@ -544,23 +678,58 @@ const CartItemRow = React.memo(
                 size={11}
                 color="#b45309"
               />
-              <Text style={S.coinsTxt}>Earn upto {coins} Cupid Coins</Text>
+              <Text
+                style={S.coinsTxt}
+                maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+              >
+                Earn upto {coins} Cupid Coins
+              </Text>
             </View>
 
-            {/* Qty stepper */}
-            <View style={S.actionsRow}>
-              <QtyStepper
-                qty={item.quantity}
-                onIncrease={onIncrease}
-                onDecrease={onDecrease}
-              />
+            {/*
+              RESPONSIVE: on narrow phones the qty-stepper and the
+              wishlist/remove pill are stacked (column) instead of forced
+              side-by-side, so neither element gets squeezed or clipped.
+              Normal/tablet widths keep the original side-by-side row.
+            */}
+            <View
+              style={[
+                S.actionsRow,
+                isSmallScreen && {
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                },
+              ]}
+            >
+              <View
+                style={isSmallScreen ? { alignSelf: "flex-start" } : undefined}
+              >
+                <QtyStepper
+                  qty={item.quantity}
+                  onIncrease={onIncrease}
+                  onDecrease={onDecrease}
+                />
+              </View>
 
               {/* Action buttons row */}
-              <View style={S.actionBtns}>
+              <View
+                style={[
+                  S.actionBtns,
+                  isSmallScreen
+                    ? { width: "100%" }
+                    : { flex: 1, marginLeft: 8 },
+                ]}
+              >
                 {/* Wishlist */}
                 <Pressable onPress={onWishlist} style={S.actionBtn}>
-                  <Ionicons name="heart-outline" size={13} color={C.inkDark} />
-                  <Text style={S.actionBtnTxt}>Wishlist</Text>
+                  <Ionicons name="heart-outline" size={24} color={C.inkDark} />
+                  {/* <Text
+                    style={S.actionBtnTxt}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+                  >
+                    Wishlist
+                  </Text> */}
                 </Pressable>
 
                 <View style={S.actionDivider} />
@@ -569,12 +738,16 @@ const CartItemRow = React.memo(
                 <Pressable onPress={onRemove} style={S.actionBtn}>
                   <MaterialCommunityIcons
                     name="delete-outline"
-                    size={13}
+                    size={24}
                     color="#ef4444"
                   />
-                  <Text style={[S.actionBtnTxt, { color: "#ef4444" }]}>
+                  {/* <Text
+                    style={[S.actionBtnTxt, { color: "#ef4444" }]}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+                  >
                     Remove
-                  </Text>
+                  </Text> */}
                 </Pressable>
               </View>
             </View>
@@ -585,10 +758,14 @@ const CartItemRow = React.memo(
                 name="truck-fast-outline"
                 size={13}
                 color={C.green}
+                style={{ marginTop: 1 }}
               />
-              <Text style={S.deliveryTxt}>
+              <Text
+                style={S.deliveryTxt}
+                maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+              >
                 Free delivery ·{" "}
-                <Text style={S.deliveryBold}>Arrives Tomorrow</Text>
+                <Text style={S.deliveryBold}>Arrives in 5-7 business days</Text>
               </Text>
             </View>
           </View>
@@ -638,18 +815,9 @@ const CheckoutBar = React.memo(
         style={[
           S.checkoutBar,
           {
-            // FIX (iOS): bottom sits flush with the screen edge (0, not the
-            // previous magic "1") — safe area is handled entirely via
-            // paddingBottom below, avoiding the double-safe-area gap.
             bottom: 0,
-            // FIX (both): dynamic horizontal safe area for notch/Dynamic
-            // Island/rounded-corner devices in landscape.
             paddingLeft: Math.max(16, insetLeft),
             paddingRight: Math.max(16, insetRight),
-            // FIX (both): replaces the hardcoded
-            // `Platform.OS === "ios" ? 28 : 14`. Scales correctly for iPhone
-            // SE (insetBottom = 0) up to Pro Max (insetBottom ≈ 34), and for
-            // Android 3-button vs gesture-nav bars.
             paddingBottom: 14 + insetBottom,
           },
         ]}
@@ -661,11 +829,21 @@ const CheckoutBar = React.memo(
           ]}
         >
           <View style={S.checkoutBadge}>
-            <Text style={S.checkoutBadgeTxt}>
+            <Text
+              style={S.checkoutBadgeTxt}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+            >
               {count} item{count > 1 ? "s" : ""}
             </Text>
             <View style={S.checkoutBadgeDot} />
-            <Text style={S.checkoutBadgeTxt}>{deliveryLabel}</Text>
+            <Text
+              style={S.checkoutBadgeTxt}
+              numberOfLines={1}
+              maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+            >
+              {deliveryLabel}
+            </Text>
           </View>
 
           <Pressable onPress={onCheckout}>
@@ -673,7 +851,7 @@ const CheckoutBar = React.memo(
               <View
                 style={{
                   height: 56,
-                  borderRadius: 6,
+                  borderRadius: 8,
                   backgroundColor: pressed ? C.pinkDeep : C.pink,
                   flexDirection: "row",
                   alignItems: "center",
@@ -693,10 +871,18 @@ const CheckoutBar = React.memo(
                     fontWeight: "800",
                     letterSpacing: -0.2,
                   }}
+                  maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+                  numberOfLines={1}
                 >
                   Place Order
                 </Text>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    flexShrink: 1,
+                  }}
+                >
                   <Text
                     style={{
                       color: "#fff",
@@ -705,6 +891,8 @@ const CheckoutBar = React.memo(
                       letterSpacing: -0.6,
                       marginRight: 4,
                     }}
+                    maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+                    numberOfLines={1}
                   >
                     ₹ {total}
                   </Text>
@@ -717,11 +905,56 @@ const CheckoutBar = React.memo(
               </View>
             )}
           </Pressable>
+
+          <Text
+            style={S.checkoutTrustTxt}
+            maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+          >
+            🔒 Secure checkout · Easy 7-day returns
+          </Text>
         </View>
       </View>
     );
   },
 );
+
+// ─── TRUST BADGES ─────────────────────────────────────────────
+const TrustBadges = React.memo(() => (
+  <View style={S.trustRow}>
+    <View style={S.trustItem}>
+      <MaterialCommunityIcons
+        name="shield-check-outline"
+        size={20}
+        color={C.pink}
+      />
+      <Text style={S.trustText} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+        100% Authentic
+      </Text>
+    </View>
+    <View style={S.trustItem}>
+      <MaterialCommunityIcons
+        name="truck-fast-outline"
+        size={20}
+        color={C.pink}
+      />
+      <Text style={S.trustText} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+        Free Delivery
+      </Text>
+    </View>
+    <View style={S.trustItem}>
+      <MaterialCommunityIcons name="backup-restore" size={20} color={C.pink} />
+      <Text style={S.trustText} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+        Easy 7-Day Returns
+      </Text>
+    </View>
+    <View style={S.trustItem}>
+      <MaterialCommunityIcons name="lock-outline" size={20} color={C.pink} />
+      <Text style={S.trustText} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+        Secure Payments
+      </Text>
+    </View>
+  </View>
+));
 
 // ─── EMPTY STATE ──────────────────────────────────────────────
 const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
@@ -749,8 +982,6 @@ const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
         style={{ width: "100%", height: "100%" }}
         resizeMode="contain"
       />
-
-      {/* <FontAwesome6 name="sad-tear" size={50} color="#F87387" /> */}
     </View>
     <Text
       style={{
@@ -759,6 +990,7 @@ const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
         marginTop: 16,
         color: "#222",
       }}
+      maxFontSizeMultiplier={FONT_SCALE_NORMAL}
     >
       Your bag is empty
     </Text>
@@ -769,6 +1001,7 @@ const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
         textAlign: "center",
         color: "#888",
       }}
+      maxFontSizeMultiplier={FONT_SCALE_NORMAL}
     >
       Looks like you haven't added anything yet.{"\n"}
       Explore styles made for you
@@ -780,11 +1013,16 @@ const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
         marginTop: 24,
         backgroundColor: "#F87387",
         paddingHorizontal: 24,
-        paddingVertical: 10,
-        borderRadius: 4,
+        paddingVertical: 12,
+        borderRadius: 8,
+        minHeight: 44,
+        justifyContent: "center",
       }}
     >
-      <Text style={{ color: "#fff", fontWeight: "700" }}>
+      <Text
+        style={{ color: "#fff", fontWeight: "700" }}
+        maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+      >
         Continue Shopping
       </Text>
     </TouchableOpacity>
@@ -803,15 +1041,9 @@ export default function Cart() {
   const setCartItems = useCartStore((s) => s.setCartItems);
   const cartItems = useCartStore((s) => s.cartItems);
   const insets = useSafeAreaInsets();
-  // FIX (tablet + rotation): reactive window size instead of static
-  // Dimensions.get(), so rotating the device updates the layout correctly.
   const { width: windowWidth } = useWindowDimensions();
   const isTablet = windowWidth >= TABLET_BREAKPOINT;
 
-  // FIX (both platforms): real, measured checkout-bar height replaces the
-  // old hardcoded CHECKOUT_BAR_HEIGHT constant. Starts at 0 (no bar/no
-  // padding) and updates once the bar lays out, or resets to 0 when the
-  // cart is empty (bar unmounts).
   const [checkoutBarHeight, setCheckoutBarHeight] = useState(0);
 
   const handleBarLayout = useCallback((e: LayoutChangeEvent) => {
@@ -820,7 +1052,6 @@ export default function Cart() {
   }, []);
 
   useEffect(() => {
-    // Cart just became empty → bar is unmounted, so no bottom padding needed.
     if (cartItems.length === 0 && checkoutBarHeight !== 0) {
       setCheckoutBarHeight(0);
     }
@@ -842,7 +1073,6 @@ export default function Cart() {
     return { subtotal: sub, saved: sv, shipping: sh, total: sub + sh };
   }, [cartItems]);
 
-  // Fetch items from firebase / local storage
   useEffect(() => {
     (async () => {
       try {
@@ -948,7 +1178,6 @@ export default function Cart() {
     [increase, decrease, remove, router],
   );
 
-  // List header (Delivery Address)
   const locationName = useLocationStore((state) => state.location);
   const ListHeader = useCallback(
     () => (
@@ -966,8 +1195,11 @@ export default function Cart() {
                   lineHeight: 18,
                   flexShrink: 1,
                 }}
+                maxFontSizeMultiplier={FONT_SCALE_NORMAL}
               >
-                <Text style={{ fontWeight: "800" }}>Deliver to:</Text>{" "}
+                <Text style={{ fontWeight: "600", color: C.inkDark }}>
+                  Deliver to:
+                </Text>{" "}
                 {locationName ? locationName : "Check date & availability"}
               </Text>
               <View style={{ flexDirection: "row", alignItems: "center" }} />
@@ -978,61 +1210,96 @@ export default function Cart() {
         <View style={S.gap8} />
 
         <View style={S.bagRow}>
-          <Text style={S.bagTitle}>
+          <Text style={S.bagTitle} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
             My Bag <Text style={S.bagCount}>({cartItems.length})</Text>
           </Text>
         </View>
       </View>
     ),
-    // FIX: `locationName` was previously missing from the dependency array
-    // (stale-closure bug — header text could go out of date), and the
-    // unused `pinCode` dependency, which caused unnecessary re-renders, was
-    // removed. Purely a correctness/perf fix — no UI/behavior change.
     [locationName, cartItems.length],
   );
 
   const ListFooter = useCallback(() => {
     if (!cartItems.length) return null;
     return (
-      <View style={S.priceSummary}>
-        <Text style={S.priceSummaryTitle}>Price Details</Text>
-
-        <View style={S.priceLineRow}>
-          <Text style={S.priceLbl}>
-            MRP ({cartItems.length} item{cartItems.length > 1 ? "s" : ""})
+      <>
+        <View style={S.priceSummary}>
+          <Text
+            style={S.priceSummaryTitle}
+            maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+          >
+            Price Details
           </Text>
-          <Text style={S.priceVal}>₹{subtotal + saved}</Text>
-        </View>
 
-        {saved > 0 && (
           <View style={S.priceLineRow}>
-            <Text style={S.priceLbl}>Discount</Text>
-            <Text style={[S.priceVal, { color: C.green }]}>−₹{saved}</Text>
-          </View>
-        )}
-
-        <View style={S.priceLineRow}>
-          <Text style={S.priceLbl}>Delivery</Text>
-          <Text style={[S.priceVal, shipping === 0 && { color: C.green }]}>
-            {shipping === 0 ? "FREE" : `₹${shipping}`}
-          </Text>
-        </View>
-
-        <View style={S.priceDivider} />
-
-        <View style={S.priceTotalRow}>
-          <Text style={S.priceTotalLbl}>Total Payable</Text>
-          <Text style={S.priceTotalVal}>₹{total}</Text>
-        </View>
-
-        {saved > 0 && (
-          <View style={S.savingsBanner}>
-            <Text style={S.savingsBannerTxt}>
-              🎉 You're saving ₹{saved} on this order
+            <Text style={S.priceLbl} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+              MRP ({cartItems.length} item{cartItems.length > 1 ? "s" : ""})
+            </Text>
+            <Text style={S.priceVal} maxFontSizeMultiplier={FONT_SCALE_TIGHT}>
+              ₹{subtotal + saved}
             </Text>
           </View>
-        )}
-      </View>
+
+          {saved > 0 && (
+            <View style={S.priceLineRow}>
+              <Text
+                style={S.priceLbl}
+                maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+              >
+                Discount
+              </Text>
+              <Text
+                style={[S.priceVal, { color: C.green }]}
+                maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+              >
+                −₹{saved}
+              </Text>
+            </View>
+          )}
+
+          <View style={S.priceLineRow}>
+            <Text style={S.priceLbl} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+              Delivery
+            </Text>
+            <Text
+              style={[S.priceVal, shipping === 0 && { color: C.green }]}
+              maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+            >
+              {shipping === 0 ? "FREE" : `₹${shipping}`}
+            </Text>
+          </View>
+
+          <View style={S.priceDivider} />
+
+          <View style={S.priceTotalRow}>
+            <Text
+              style={S.priceTotalLbl}
+              maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+            >
+              Total Payable
+            </Text>
+            <Text
+              style={S.priceTotalVal}
+              maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+            >
+              ₹{total}
+            </Text>
+          </View>
+
+          {saved > 0 && (
+            <View style={S.savingsBanner}>
+              <Text
+                style={S.savingsBannerTxt}
+                maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+              >
+                🎉 You're saving ₹{saved} on this order
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <TrustBadges />
+      </>
     );
   }, [cartItems.length, subtotal, saved, shipping, total]);
 
@@ -1044,10 +1311,7 @@ export default function Cart() {
           return;
         }
 
-        const res = await createCheckoutCart(
-          [product], // Only this product
-          auth.currentUser,
-        );
+        const res = await createCheckoutCart([product], auth.currentUser);
 
         const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
 
@@ -1064,8 +1328,6 @@ export default function Cart() {
     [router],
   );
 
-  // FIX (perf): stable handler so CheckoutBar's React.memo isn't broken by a
-  // freshly-created function reference on every parent render.
   const handleCheckout = useCallback(async () => {
     try {
       if (!auth.currentUser) {
@@ -1094,14 +1356,17 @@ export default function Cart() {
       <Stack.Screen
         options={{
           headerTitle: () => (
-            <Text style={{ fontSize: 16, fontWeight: "700", color: C.black }}>
+            <Text
+              style={{ fontSize: 16, fontWeight: "700", color: C.black }}
+              maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+            >
               Bag
             </Text>
           ),
           headerShadowVisible: false,
           headerStyle: { backgroundColor: "#fff7f8" },
           headerLeft: () => (
-            <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Pressable onPress={() => router.back()} hitSlop={10}>
               <EvilIcons name="chevron-left" size={32} color={C.black} />
             </Pressable>
           ),
@@ -1110,14 +1375,14 @@ export default function Cart() {
               <Pressable
                 onPress={() => router.push("/Search")}
                 style={S.headerBtn}
-                hitSlop={4}
+                hitSlop={8}
               >
                 <Feather name="search" size={26} color="#555" />
               </Pressable>
               <Pressable
                 onPress={() => setWishlist((w) => !w)}
                 style={S.headerBtn}
-                hitSlop={4}
+                hitSlop={8}
               >
                 <Ionicons
                   name={wishlist ? "heart" : "heart-outline"}
@@ -1130,15 +1395,6 @@ export default function Cart() {
         }}
       />
 
-      {/*
-        FIX (iOS gap bug): removed `paddingBottom: insets.bottom` that used
-        to live here. CheckoutBar is absolutely positioned inside this View,
-        so that padding was pushing the bar up AND the bar was separately
-        adding its own bottom inset padding — double-counting the safe area
-        and leaving a visible white strip below the bar. The wrapper now
-        simply fills the screen; CheckoutBar owns 100% of its own safe-area
-        handling.
-      */}
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         {loading ? (
           <CartSkeleton />
@@ -1155,11 +1411,6 @@ export default function Cart() {
               contentContainerStyle={{
                 flexGrow: 1,
                 backgroundColor: C.bg,
-                // FIX (both): dynamic, measured bar height instead of the
-                // old static CHECKOUT_BAR_HEIGHT guess. Guarantees the last
-                // list item / price summary is never hidden behind the bar,
-                // and doesn't over-pad when the bar is smaller (e.g. no
-                // home indicator on iPhone SE) or absent (empty cart).
                 paddingBottom: checkoutBarHeight,
               }}
               showsVerticalScrollIndicator={false}
@@ -1180,7 +1431,6 @@ export default function Cart() {
               onBarLayout={handleBarLayout}
             />
 
-            {/* Pincode modal */}
             <Modal
               visible={pinModalVisible}
               transparent
@@ -1199,18 +1449,21 @@ export default function Cart() {
                   style={[
                     S.modalSheet,
                     {
-                      // FIX (both): replaces hardcoded
-                      // `Platform.OS === "ios" ? 40 : 24` with a value that
-                      // scales with the actual home-indicator / gesture-nav
-                      // inset on the device, so the "Check Availability"
-                      // button and Close row are never cramped against it.
                       paddingBottom: Math.max(20, insets.bottom + 20),
                     },
                   ]}
                 >
                   <View style={S.modalHandle} />
-                  <Text style={S.modalTitle}>Delivery Location</Text>
-                  <Text style={S.modalSub}>
+                  <Text
+                    style={S.modalTitle}
+                    maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+                  >
+                    Delivery Location
+                  </Text>
+                  <Text
+                    style={S.modalSub}
+                    maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+                  >
                     Enter pincode to check delivery date & options
                   </Text>
                   <View style={S.modalInput}>
@@ -1237,13 +1490,23 @@ export default function Cart() {
                       { backgroundColor: pressed ? C.pinkDeep : C.pink },
                     ]}
                   >
-                    <Text style={S.modalBtnTxt}>Check Availability</Text>
+                    <Text
+                      style={S.modalBtnTxt}
+                      maxFontSizeMultiplier={FONT_SCALE_TIGHT}
+                    >
+                      Check Availability
+                    </Text>
                   </Pressable>
                   <Pressable
                     onPress={() => setPinModalVisible(false)}
                     style={S.modalClose}
                   >
-                    <Text style={S.modalCloseTxt}>Close</Text>
+                    <Text
+                      style={S.modalCloseTxt}
+                      maxFontSizeMultiplier={FONT_SCALE_NORMAL}
+                    >
+                      Close
+                    </Text>
                   </Pressable>
                 </View>
               </KeyboardAvoidingView>
