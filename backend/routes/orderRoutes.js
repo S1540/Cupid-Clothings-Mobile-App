@@ -6,11 +6,11 @@ const {
 } = require("../services/orderService");
 const { fetchRecommendedProducts } = require("../services/shopifyService");
 
-router.get("/shopify/order-created", async (req, res) => {
+router.post("/shopify/order-created", async (req, res) => {
   try {
     const order = req.body;
     await saveOrderToFirebase(order);
-    res.send("OK");
+    // res.send("OK");
     res.status(200).send("OK");
   } catch (error) {
     console.log(error);
