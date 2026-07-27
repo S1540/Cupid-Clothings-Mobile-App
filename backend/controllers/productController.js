@@ -4,6 +4,7 @@ const {
   searchProducts,
   fetchSingleProduct,
   fetchRecommendedProducts,
+  fetchHomeRecommendations,
 } = require("../services/shopifyService");
 
 // For Fetch product by home tab(Men, women, Plus-Size......)
