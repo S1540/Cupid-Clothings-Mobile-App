@@ -387,7 +387,13 @@ async function fetchHomeRecommendations(handles) {
     const product = await fetchSingleProduct(handle);
     if (!product) continue;
 
+    console.log("Product ID:", product.id);
+    // const recommendations = await fetchRecommendedProducts(product.id);
+
     const recommendations = await fetchRecommendedProducts(product.id);
+
+    console.log("Recommendations Count:", recommendations.length);
+    console.log(recommendations);
 
     allProducts.push(...recommendations);
   }
