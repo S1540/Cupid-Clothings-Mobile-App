@@ -12,13 +12,13 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/judgeme", judgeMeRoutes);
 // Test Webhook Shiprocket
-app.post("/api/tracking-webhook", async (req, res) => {
-  const token = req.headers["x-api-key"];
-  console.log("=== SHIPROCKET WEBHOOK ===");
-  console.log(JSON.stringify(req.body, null, 2));
+// app.post("/api/tracking-webhook", async (req, res) => {
+//   const token = req.headers["x-api-key"];
+//   console.log("=== SHIPROCKET WEBHOOK ===");
+//   console.log(JSON.stringify(req.body, null, 2));
 
-  res.status(200).send("OK");
-});
+//   res.status(200).send("OK");
+// });
 app.get("/api/tracking-webhook", (req, res) => {
   res.status(200).send("Webhook Working");
 });

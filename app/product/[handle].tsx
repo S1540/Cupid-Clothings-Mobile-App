@@ -84,10 +84,9 @@ const TABLET_MAX_CONTENT_WIDTH = 600;
 export default function ProductPage() {
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
-  const isTablet = screenWidth >= TABLET_BREAKPOINT; // FIX: previously captured but never used
+  const isTablet = screenWidth >= TABLET_BREAKPOINT;
   const insets = useSafeAreaInsets();
   const { handle } = useLocalSearchParams();
-
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingCart, setLoadingCart] = useState(false);
@@ -385,6 +384,7 @@ export default function ProductPage() {
         const data = await res.json();
         await saveRecentlyViewed(data);
         setProduct(data);
+        // console.log(data);
 
         const viewed = await viewRecentlyProducts();
         setViewedProducts(viewed);
@@ -471,6 +471,36 @@ export default function ProductPage() {
       return [];
     }
   };
+  // Save Intrested Product in LocalStorage
+  const saveIntrestedProduct = async (product: Product) => {
+    try {
+      const existing = await AsyncStorage.getItem("saveIntrestedProduct");
+      let saved = existing ? JSON.parse(existing) : [];
+
+      // Remove duplicate
+      const items = saved.filter((p: Product) => p.handle !== product.handle);
+      items.unshift({
+        handle: product.handle,
+        title: product.title,
+        price: product.price,
+        compareAtPrice: product.compareAtPrice,
+        discountPercent: product.discountPercent,
+        images: [product.images?.[0]],
+      });
+      items.splice(2);
+      await AsyncStorage.setItem("saveIntrestedProduct", JSON.stringify(items));
+    } catch {
+      console.log("Error saving recently viewed");
+    }
+  };
+  // save after user seen product for 5 seconds
+  useEffect(() => {
+    if (!product) return;
+    const timer = setTimeout(() => {
+      saveIntrestedProduct(product);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [product?.handle]);
 
   // ── Variant availability ────────────────────────────────────────────────────
   const isVariantAvailable = (optionName: string, value: string) =>

@@ -4,10 +4,16 @@ import LoginRewardModal from "@/components/modal/Loginrewardmodal";
 import Similarproductsmodal from "@/components/modal/Similarproductsmodal";
 import CircleLoader from "@/components/ui/CircleLoader";
 import HomeSkeleton from "@/components/ui/HomeSkeleton";
+import ProductCard from "@/components/ui/ProductCrad";
+import PromoHotDeals from "@/components/ui/PromoHotDeals";
+import KidsCollections from "@/components/ui/KidsCollection";
+import RecommendedProductsSection from "@/components/ui/RecommendedProductsSection";
+import ComfortCategoryGrid from "@/components/ui/ComfortCategoryGrid";
 import { auth } from "@/firebaseConfig";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { router, useRouter } from "expo-router";
+import { router, useFocusEffect, useRouter } from "expo-router";
+import { Marquee } from "@animatereactnative/marquee";
+import { LinearGradient } from "expo-linear-gradient";
 import React, {
   memo,
   useCallback,
@@ -28,19 +34,29 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
+
 import Carousel from "react-native-reanimated-carousel";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import "../../global.css";
-import ProductCard from "@/components/ui/ProductCrad";
+import {
+  CATEGORY_IMAGES,
+  BANNERS,
+  type BannerItem,
+  OFFERS,
+  type Offer,
+  offerCollections,
+  offerCollections2,
+  KidsCollection,
+  type offerCollectionsType,
+} from "../../localData/localData";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type Subcategory = { title: string; handle: string; image: string | null };
 type MenuItem = { title: string; handle: string; subcategories: Subcategory[] };
 type Category = { name: string; handle: string; image: string };
-type BannerItem = { id: number; image: string };
-type Offer = { id: number; image: string };
+
 type Product = {
   id: string;
   title: string;
@@ -59,112 +75,12 @@ type FilterState = {
   sort: string | null;
 };
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const CATEGORY_IMAGES: Record<string, string> = {
-  "women-plain-tshirts":
-    "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782547891/20260627_115155_0000_enekpj.png",
-  "track-pants-m-to-7xl":
-    "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782548293/20260627_115155_0001_viekpp.png",
-  "night-suits-sets-plus-sizes":
-    "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782548293/20260627_115155_0002_t63hza.png",
-  combos:
-    "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782548292/20260627_115155_0003_fikdxd.png",
-  "women-winter-wear":
-    "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782548291/20260627_115155_0004_bq7mc2.png",
-  "men-track-pants":
-    "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782726953/Bottomwear_Men_kj3q9n.png",
-  "men-tracksuits":
-    "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782726953/Loungewear_Men_lpb9ja.png",
-  "men-polo-tshirts":
-    "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782726953/Tshirts_Men_xw7hdn.png",
-  "men-combo-sets":
-    "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782726953/combo_Men_xvzqis.png",
-};
+const DEFAULT_IMAGE = "";
 
-const DEFAULT_IMAGE =
-  "https://images.unsplash.com/photo-1610476650745-58700c3defa5?w=200&q=60";
-
-// ── Swipe tuning ──────────────────────────────────────────────────────────────
-// Pixels of horizontal movement required to advance the image.
-const SWIPE_THRESHOLD = 38;
-// Pixels of vertical movement that cancels a horizontal swipe.
-// Keeps FlatList vertical scroll completely unaffected.
-const VERTICAL_CANCEL_THRESHOLD = 12;
-
-const BANNERS: Record<string, BannerItem[]> = {
-  Women: [
-    {
-      id: 1,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782198145/Curves_Deserve_1_porp0e.png",
-    },
-    {
-      id: 2,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782218557/WhatsApp_Image_2026-06-23_at_6.06.38_PM_xzbbbn.jpg",
-    },
-  ],
-  Men: [
-    {
-      id: 1,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782200518/10_20260623_130917_0004_ippqsj.png",
-    },
-    {
-      id: 2,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782218560/WhatsApp_Image_2026-06-23_at_6.06.36_PM_ty9fte.jpg",
-    },
-  ],
-  "Plus-Size": [
-    {
-      id: 1,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782200515/plus_size_20260623_130917_0003_y9nwys.png",
-    },
-    {
-      id: 2,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782218557/WhatsApp_Image_2026-06-23_at_6.06.37_PM_2_ny6bfq.jpg",
-    },
-  ],
-  "Deal's & Offers": [
-    {
-      id: 1,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782218558/WhatsApp_Image_2026-06-23_at_6.06.37_PM_1_r5athx.jpg",
-    },
-    {
-      id: 2,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782200513/Deals_and_offers_20260623_130917_0002_aupz6t.png",
-    },
-  ],
-  "New-Arrivals": [
-    {
-      id: 1,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782218558/WhatsApp_Image_2026-06-23_at_6.06.37_PM_d4b4vf.jpg",
-    },
-    {
-      id: 2,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782200508/New_arrivals_20260623_130917_0001_vxvfxn.png",
-    },
-  ],
-};
-
-const OFFERS: Offer[] = [
-  {
-    id: 1,
-    image:
-      "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782893616/2_jm4lib.png",
-  },
-  {
-    id: 2,
-    image:
-      "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782893616/1_uwz60k.png",
-  },
+// Kidss Scroller Data
+const ANNOUNCEMENTS = [
+  "🔥 Just Launched Kids Wear",
+  "💖 More Collections Coming Soon",
 ];
 
 // ─── SMALL COMPONENTS ─────────────────────────────────────────────────────────
@@ -198,11 +114,16 @@ type HomeListHeaderProps = {
   banners: BannerItem[];
   categories: Category[];
   carouselWidth: number;
+  activeNav: string;
   bannerHeight: number;
   offerHeight: number;
   onSnapRef: React.MutableRefObject<((index: number) => void) | null>;
   renderCategory: ListRenderItem<Category>;
   offers?: Offer[];
+  offersData?: offerCollectionsType[];
+  onPress?: () => void;
+  recommendedProducts?: Product[];
+  interestedProducts?: Product[];
 };
 
 const HomeListHeader = React.memo(
@@ -210,11 +131,15 @@ const HomeListHeader = React.memo(
     banners,
     categories,
     carouselWidth,
+    activeNav,
     bannerHeight,
     offerHeight,
     onSnapRef,
+    onPress,
     renderCategory,
     offers,
+    recommendedProducts,
+    interestedProducts,
   }: HomeListHeaderProps) => {
     const [activeSlide, setActiveSlide] = useState(0);
     useEffect(() => {
@@ -228,6 +153,14 @@ const HomeListHeader = React.memo(
     const renderOfferItem = useCallback(
       ({ item }: { item: Offer }) => <OfferSlide item={item} />,
       [],
+    );
+    const gender = activeNav.toLowerCase();
+    const filteredOfferCollections = offerCollections.filter(
+      (item) => item.gender.toLowerCase() === gender,
+    );
+
+    const filteredOfferCollections2 = offerCollections2.filter(
+      (item) => item.gender.toLowerCase() === gender,
     );
 
     return (
@@ -243,7 +176,6 @@ const HomeListHeader = React.memo(
           scrollAnimationDuration={700}
           renderItem={renderBannerItem}
         />
-
         <View style={styles.dotsRow}>
           {banners.map((_, i) => (
             <View
@@ -257,7 +189,6 @@ const HomeListHeader = React.memo(
             />
           ))}
         </View>
-
         <View style={{ marginTop: 20, marginBottom: 8 }}>
           <FlatList
             data={categories}
@@ -270,7 +201,6 @@ const HomeListHeader = React.memo(
             maxToRenderPerBatch={5}
           />
         </View>
-
         {offers && offers.length > 0 && (
           <View style={{ marginBottom: 20, paddingLeft: 10, paddingRight: 10 }}>
             <Carousel
@@ -285,10 +215,249 @@ const HomeListHeader = React.memo(
             />
           </View>
         )}
+        {/* // Collections Bg inside card */}
+        <PromoHotDeals
+          heading="HOT DEALS "
+          backgroundImage={""}
+          data={filteredOfferCollections.map((c) => ({
+            id: c.id,
+            title: c.title,
+            handle: c.handle,
+            image: c.bg,
+          }))}
+        >
+          <View style={{ paddingLeft: 16, marginTop: 8 }}>
+            <FlatList
+              horizontal
+              data={filteredOfferCollections2.map((c) => ({
+                id: c.id,
+                title: c.title,
+                handle: c.handle,
+                image: c.bg,
+              }))}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => router.push(`/category/${item.handle}`)}
+                >
+                  <Image
+                    source={{ uri: item.image }}
+                    style={{
+                      width: 180,
+                      height: 280,
+                      borderRadius: 0,
+                      marginRight: 6,
+                    }}
+                  />
+                </Pressable>
+              )}
+            />
+          </View>
+        </PromoHotDeals>
+        {/* Comfort Zone deal */}
+        <ComfortCategoryGrid
+          title="PICK YOUR COMFORT"
+          subtitle="Styles for every mood & every moment."
+          onPressViewAll={() => router.push("/")}
+          onPress={(item) => router.push(`/category/${item.handle}`)}
+          data={[
+            {
+              id: "1",
+              title: "Gymwear",
+              subtitle: "Move. Sweat. Repeat.",
+              handle: "gymwear",
+              image:
+                "https://res.cloudinary.com/drsoj4c5q/image/upload/v1784811627/gym_xapg0h.png",
+              buttonText: "SHOP NOW",
+              icon: (
+                <MaterialCommunityIcons
+                  name="dumbbell"
+                  size={16}
+                  color="#F0417D"
+                />
+              ),
+            },
+            {
+              id: "2",
+              title: "Travel",
+              subtitle: "Comfort that goes where you go.",
+              handle: "travel-wear",
+              image:
+                "https://res.cloudinary.com/drsoj4c5q/image/upload/v1784811627/travel_k0la06.png",
+              icon: (
+                <MaterialCommunityIcons
+                  name="bag-suitcase"
+                  size={16}
+                  color="#7C3FD6"
+                />
+              ),
+            },
+            {
+              id: "3",
+              title: "Sleepwear",
+              subtitle: "Soft fits for your best sleep.",
+              handle: "night-suits-sets-plus-sizes",
+              image:
+                "https://res.cloudinary.com/drsoj4c5q/image/upload/v1784811627/nightwear_lhzbpb.png",
+              icon: (
+                <MaterialCommunityIcons
+                  name="weather-night"
+                  size={16}
+                  color="#F0417D"
+                />
+              ),
+            },
+            {
+              id: "4",
+              title: "Everyday Wear",
+              subtitle: "Easy, comfy & made for you.",
+              handle: "everyday-wear",
+              image:
+                "https://res.cloudinary.com/drsoj4c5q/image/upload/v1784811628/casual_onyjkj.png",
+              icon: (
+                <MaterialCommunityIcons
+                  name="tshirt-crew"
+                  size={16}
+                  color="#E08A1F"
+                />
+              ),
+            },
+          ]}
+        />
+        {/* Recomended Section */}
+        <RecommendedProductsSection
+          heading="BECAUSE YOU LIKED..."
+          subHeading="More styles we think you'll love"
+          viewedProduct={{
+            title: "Relaxed Fit Track Pants",
+            image: "https://...",
+            subtitle: "You viewed this recently",
+          }}
+          products={[
+            {
+              id: "1",
+              title: "Straight Track Pants",
+              handle: "straight-track-pants",
+              image: "https://...",
+              price: 599,
+              compareAtPrice: 899,
+              rating: 4.7,
+              reviewCount: 1200,
+              badge: "BEST SELLER",
+            },
+            {
+              id: "2",
+              title: "Wide Leg Track Pants",
+              handle: "wide-leg-track-pants",
+              image: "https://...",
+              price: 699,
+              compareAtPrice: 999,
+              rating: 4.6,
+              reviewCount: 892,
+              badge: "NEW",
+            },
+            {
+              id: "2",
+              title: "Wide Leg Track Pants",
+              handle: "wide-leg-track-pants",
+              image: "https://...",
+              price: 699,
+              compareAtPrice: 999,
+              rating: 4.6,
+              reviewCount: 892,
+              badge: "NEW",
+            },
+            {
+              id: "2",
+              title: "Wide Leg Track Pants",
+              handle: "wide-leg-track-pants",
+              image: "https://...",
+              price: 699,
+              compareAtPrice: 999,
+              rating: 4.6,
+              reviewCount: 892,
+              badge: "NEW",
+            },
+          ]}
+          onPressProduct={(item: any) => router.push(`/product/${item.handle}`)}
+          onAddToBag={(item) => null}
+          onWishlist={(item) => null}
+          onViewAll={() => router.push("/")}
+        />
 
-        <View style={styles.trendingHeader}>
-          <Text style={styles.sectionTitle}>Trending Now</Text>
-        </View>
+        {/* Just Lunched Kids Wear */}
+        <LinearGradient
+          colors={["#F87387", "#B85CC9", "#759EF0DB"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ flexDirection: "row", height: 40 }}
+        >
+          <View
+            style={{
+              width: 140,
+              justifyContent: "center",
+              paddingLeft: 14,
+              backgroundColor: "rgba(0,0,0,0.12)",
+            }}
+          >
+            <Text
+              style={{
+                color: "#fff",
+                fontSize: 12.5,
+                fontWeight: "800",
+                letterSpacing: 0.8,
+              }}
+            >
+              JUST LAUNCHED
+            </Text>
+          </View>
+
+          <View
+            style={{ flex: 1, overflow: "hidden", justifyContent: "center" }}
+          >
+            <Marquee>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                {ANNOUNCEMENTS.map((item, i) => (
+                  <View
+                    key={i}
+                    style={{ flexDirection: "row", alignItems: "center" }}
+                  >
+                    <Text
+                      style={{
+                        color: "#fff",
+                        fontSize: 12.5,
+                        fontWeight: "600",
+                        opacity: 0.96,
+                        letterSpacing: 0.2,
+                      }}
+                    >
+                      {item}
+                    </Text>
+                    <Text
+                      style={{
+                        color: "#ffffffaa",
+                        fontSize: 13,
+                        fontWeight: "700",
+                        marginHorizontal: 14,
+                      }}
+                    >
+                      •
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </Marquee>
+          </View>
+        </LinearGradient>
+        <KidsCollections
+          backgroundImage={""}
+          data={KidsCollection.map((c) => ({
+            id: c.id,
+            title: c.title,
+            handle: c.handle,
+            image: c.bg,
+          }))}
+        ></KidsCollections>
       </>
     );
   },
@@ -334,235 +503,6 @@ const CategoryItem = memo(
     </Pressable>
   ),
 );
-
-// ─── IMAGE DOTS ───────────────────────────────────────────────────────────────
-// Isolated memo so only dots re-render when activeIndex changes,
-// never the entire card.
-const ImageDots = memo(
-  ({ count, activeIndex }: { count: number; activeIndex: number }) => {
-    if (count <= 1) return null;
-    return (
-      <View style={styles.imageDots}>
-        {Array.from({ length: count }).map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.imageDot,
-              i === activeIndex && styles.imageDotActive,
-            ]}
-          />
-        ))}
-      </View>
-    );
-  },
-);
-
-// ─── PRODUCT IMAGE SWIPER ─────────────────────────────────────────────────────
-//
-// Gesture API implementation (react-native-gesture-handler v2+).
-//
-// Pan gesture:
-//   - activeOffsetX: only activates once horizontal movement crosses a small
-//     threshold, so it doesn't eat vertical touches meant for FlatList.
-//   - failOffsetY: if the finger moves vertically past this threshold first,
-//     the gesture FAILS and hands the touch back to the native responder
-//     chain — FlatList scrolls exactly as if this view weren't here.
-//
-// Tap gesture:
-//   - maxDistance keeps it a "true tap" (no drag), so a swipe never
-//     accidentally triggers navigation.
-//
-// Gesture.Exclusive(panGesture, tapGesture):
-//   - Only one of the two can ever win per touch. If Pan activates
-//     (clear horizontal movement), Tap is cancelled, and vice versa.
-//
-// This is the same pattern used by production apps like Myntra/Zara/Ajio:
-// declarative gesture arbitration instead of manual responder negotiation.
-
-// type ProductImageSwiperProps = {
-//   images: { url: string; alt: string }[];
-//   height: number;
-//   onPress: () => void;
-// };
-
-// const ProductImageSwiper = memo(
-//   ({ images, height, onPress }: ProductImageSwiperProps) => {
-//     const [activeIndex, setActiveIndex] = useState(0);
-//     const totalImages = images.length;
-
-//     const goNext = useCallback(() => {
-//       setActiveIndex((prev) => (prev < totalImages - 1 ? prev + 1 : prev));
-//     }, [totalImages]);
-
-//     const goPrev = useCallback(() => {
-//       setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
-//     }, []);
-
-//     const panGesture = useMemo(
-//       () =>
-//         Gesture.Pan()
-//           .activeOffsetX([-10, 10])
-//           .failOffsetY([-VERTICAL_CANCEL_THRESHOLD, VERTICAL_CANCEL_THRESHOLD])
-//           .onEnd((e) => {
-//             "worklet";
-//             if (totalImages <= 1) return;
-//             if (e.translationX < -SWIPE_THRESHOLD) {
-//               runOnJS(goNext)();
-//             } else if (e.translationX > SWIPE_THRESHOLD) {
-//               runOnJS(goPrev)();
-//             }
-//           }),
-//       [totalImages, goNext, goPrev],
-//     );
-
-//     const tapGesture = useMemo(
-//       () =>
-//         Gesture.Tap()
-//           .maxDistance(10)
-//           .onEnd((_e, success) => {
-//             "worklet";
-//             if (success) {
-//               runOnJS(onPress)();
-//             }
-//           }),
-//       [onPress],
-//     );
-
-//     const composedGesture = useMemo(
-//       () => Gesture.Exclusive(panGesture, tapGesture),
-//       [panGesture, tapGesture],
-//     );
-
-//     const currentImageUrl = images[activeIndex]?.url ?? DEFAULT_IMAGE;
-
-//     return (
-//       <GestureDetector gesture={composedGesture}>
-//         <View style={[styles.productImageWrap, { height }]}>
-//           <Image
-//             source={{ uri: currentImageUrl }}
-//             style={StyleSheet.absoluteFillObject}
-//             contentFit="cover"
-//             cachePolicy="memory-disk"
-//             transition={120}
-//           />
-//           <ImageDots count={totalImages} activeIndex={activeIndex} />
-//         </View>
-//       </GestureDetector>
-//     );
-//   },
-// );
-
-// // ─── ProductCard ──────────────────────────────────────────────────────────────
-// const ProductCard = memo(
-//   ({
-//     item,
-//     productImageHeight,
-//     reviewSummary,
-//     onPress,
-//   }: {
-//     item: Product;
-//     productImageHeight: number;
-//     reviewSummary: any;
-//     onPress: () => void;
-//   }) => {
-//     const router = useRouter();
-//     const productId = item.id.split("/").pop();
-//     const review = productId && reviewSummary ? reviewSummary[productId] : null;
-//     // console.log(review);
-
-//     const handlePress = useCallback(() => {
-//       router.push({
-//         pathname: "/product/[handle]",
-//         params: { handle: item.handle },
-//       });
-//     }, [item.handle]);
-
-//     const handlePrefetch = useCallback(() => {
-//       router.prefetch(`/product/${item.handle}`);
-//     }, [item.handle]);
-//     const images = useMemo(
-//       () =>
-//         item.images?.length ? item.images : [{ url: DEFAULT_IMAGE, alt: "" }],
-//       [item.images],
-//     );
-
-//     return (
-//       <View style={styles.productCard}>
-//         {/* Swipeable image — tap also handled inside */}
-//         <View>
-//           <ProductImageSwiper
-//             images={images}
-//             height={productImageHeight}
-//             onPress={handlePress}
-//           />
-
-//           <Pressable
-//             onPressIn={handlePrefetch}
-//             style={styles.wishlistBtn}
-//             hitSlop={8}
-//           >
-//             {review && (
-//               <View
-//                 style={{
-//                   flexDirection: "row",
-//                   alignItems: "center",
-//                   marginTop: 4,
-//                   // marginBottom: 2,
-//                   paddingVertical: 1,
-//                   paddingHorizontal: 2,
-//                   borderRadius: 2,
-//                   backgroundColor: "rgba(255,255,255,0.55)",
-//                 }}
-//               >
-//                 <MaterialCommunityIcons name="star" size={13} color="#F59E0B" />
-
-//                 <Text
-//                   style={{
-//                     fontSize: 11,
-//                     fontWeight: "600",
-//                     marginLeft: 3,
-//                   }}
-//                 >
-//                   {review.averageRating} ({review.reviewCount})
-//                 </Text>
-//               </View>
-//             )}
-//           </Pressable>
-//           <Pressable
-//             onPress={onPress}
-//             onPressIn={handlePrefetch}
-//             style={styles.similerBtn}
-//             hitSlop={8}
-//           >
-//             <MaterialCommunityIcons
-//               name="cards-outline"
-//               size={24}
-//               color="black"
-//               opacity={0.7}
-//             />
-//           </Pressable>
-//         </View>
-
-//         {/* Info section — separate Pressable so the whole card is tappable */}
-//         <Pressable onPress={handlePress} style={{ padding: 10, gap: 4 }}>
-//           <Text numberOfLines={2} style={styles.productTitle}>
-//             {item.title}
-//           </Text>
-//           <View style={styles.priceRow}>
-//             <Text style={styles.price}>₹{item.price}</Text>
-//             {item.compareAtPrice && (
-//               <Text style={styles.comparePrice}>₹{item.compareAtPrice}</Text>
-//             )}
-//             {item.discountPercent && (
-//               <Text style={styles.discount}>{item.discountPercent}% off</Text>
-//             )}
-//           </View>
-//           <Text style={styles.firstOrderOffer}>30% off on first order</Text>
-//         </Pressable>
-//       </View>
-//     );
-//   },
-// );
 
 // ─── FilterModal --------------------------------------------------
 const FilterModal = memo(
@@ -764,6 +704,8 @@ export default function Index() {
   const [filterVisible, setFilterVisible] = useState(false);
   const [similarModal, setSimilarModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [interestedProducts, setInterestedProducts] = useState<Product[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [reviewSummary, setReviewSummary] = useState<any>(null);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     priceRange: null,
@@ -872,7 +814,7 @@ export default function Index() {
     };
     fetchProduct();
   }, [activeNav]);
-
+  // fetch Menuu Items
   useEffect(() => {
     const fetchMenu = async () => {
       try {
@@ -903,6 +845,51 @@ export default function Index() {
       setCategories([]);
     }
   }, [activeNav, menuData]);
+  // Read AsyncStorage For Intrested PRoduct
+  useFocusEffect(
+    useCallback(() => {
+      const getInterestedProducts = async () => {
+        try {
+          const data = await AsyncStorage.getItem("saveIntrestedProduct");
+          if (data) {
+            setInterestedProducts(JSON.parse(data));
+          } else {
+            setInterestedProducts([]);
+          }
+        } catch (err) {
+          console.log(err);
+        }
+      };
+
+      getInterestedProducts();
+    }, []),
+  );
+
+  // Recommendation apis Call
+  const fetchRecommendedProducts = async (products: Product[]) => {
+    try {
+      const handles = products.map((p) => p.handle);
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/products/recommendations`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ handles }),
+        },
+      );
+      const data = await response.json();
+      setRecommendedProducts(data);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+  // save Data in State
+  useEffect(() => {
+    if (interestedProducts.length === 0) return;
+    fetchRecommendedProducts(interestedProducts);
+  }, [interestedProducts]);
 
   const onRefresh = async () => {
     setPullToRefresh(true);
@@ -960,6 +947,7 @@ export default function Index() {
         banners={banners}
         categories={categories}
         carouselWidth={width}
+        activeNav={activeNav}
         bannerHeight={bannerHeight}
         offerHeight={offerHeight}
         onSnapRef={snapRef}
@@ -982,7 +970,7 @@ export default function Index() {
             <View
               style={{
                 position: "absolute",
-                top: insets.top + 110,
+                top: insets.top + 100,
                 left: 0,
                 right: 0,
                 bottom: 0,
@@ -1000,7 +988,8 @@ export default function Index() {
             data={filteredProducts}
             keyExtractor={keyExtractor}
             numColumns={2}
-            renderItem={renderProduct}
+            // renderItem={renderProduct}
+            renderItem={null}
             ListHeaderComponent={listHeaderElement}
             columnWrapperStyle={styles.columnWrapper}
             showsVerticalScrollIndicator={false}

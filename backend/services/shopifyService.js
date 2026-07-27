@@ -380,6 +380,27 @@ async function fetchRecommendedProducts(productId) {
     throw err;
   }
 }
+// For You may Also Like on Home Screen Bases on user interests
+async function fetchHomeRecommendations(handles) {
+  let allProducts = [];
+  for (const handle of handles) {
+    const product = await fetchSingleProduct(handle);
+    if (!product) continue;
+
+    const recommendations = await fetchRecommendedProducts(product.id);
+
+    allProducts.push(...recommendations);
+  }
+
+  // Remove viewed products
+  allProducts = allProducts.filter((p) => !handles.includes(p.handle));
+  // remove duplicates
+  allProducts = [
+    ...new Map(allProducts.map((item) => [item.handle, item])).values(),
+  ];
+
+  return allProducts.slice(0, 8);
+}
 
 module.exports = {
   fetchProducts,
@@ -387,4 +408,5 @@ module.exports = {
   searchProducts,
   fetchSingleProduct,
   fetchRecommendedProducts,
+  fetchHomeRecommendations,
 };

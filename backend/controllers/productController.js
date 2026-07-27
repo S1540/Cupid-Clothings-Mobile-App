@@ -3,6 +3,7 @@ const {
   fetchMenu,
   searchProducts,
   fetchSingleProduct,
+  fetchRecommendedProducts,
 } = require("../services/shopifyService");
 
 // For Fetch product by home tab(Men, women, Plus-Size......)
@@ -54,7 +55,6 @@ const getProductByHandle = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch product" });
   }
 };
-const { fetchRecommendedProducts } = require("../services/shopifyService");
 
 const getRecommendations = async (req, res) => {
   try {
@@ -67,9 +67,22 @@ const getRecommendations = async (req, res) => {
     });
   }
 };
-
-module.exports = {
-  getRecommendations,
+const getHomeRecommendations = async (req, res) => {
+  try {
+    const { handles } = req.body;
+    if (!handles || !Array.isArray(handles) || handles.length === 0) {
+      return res.status(400).json({
+        error: "Handles are required",
+      });
+    }
+    const products = await fetchHomeRecommendations(handles);
+    res.json(products);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 };
 
 module.exports = {
@@ -78,4 +91,5 @@ module.exports = {
   searchedProducts,
   getProductByHandle,
   getRecommendations,
+  getHomeRecommendations,
 };

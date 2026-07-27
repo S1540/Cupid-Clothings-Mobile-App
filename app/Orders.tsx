@@ -32,7 +32,7 @@ const STATUS_CONFIG: Record<
 
 // ----------- Order Row (Order Card Ui)-------------------
 const OrderRow = ({ order, onPress }: { order: any; onPress: () => void }) => {
-  const cfg = STATUS_CONFIG.delivered;
+  const cfg = STATUS_CONFIG.processing;
 
   return (
     <Pressable

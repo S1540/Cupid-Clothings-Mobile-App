@@ -159,7 +159,7 @@ const ProductDetailsSection = React.memo(
             <Feather
               name={expanded ? "chevron-up" : "chevron-down"}
               size={18}
-              color="#F87387"
+              color="black"
             />
           </View>
           {product.description
@@ -181,7 +181,7 @@ const ProductDetailsSection = React.memo(
                     width: 5,
                     height: 5,
                     borderRadius: 99,
-                    backgroundColor: "#ff5c84",
+                    backgroundColor: "#555",
                     marginTop: 8,
                   }}
                 />

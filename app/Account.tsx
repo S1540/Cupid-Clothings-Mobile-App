@@ -13,6 +13,7 @@ import {
   Switch,
   Text,
   View,
+  Image,
 } from "react-native";
 import LoginModel from "../components/modal/LoginModel";
 
@@ -95,8 +96,8 @@ const ToggleRow = ({
       <Switch
         value={value}
         onValueChange={onChange}
-        trackColor={{ false: "#e5e5e5", true: "#ffb3c1" }}
-        thumbColor={value ? "#F87387" : "#fff"}
+        trackColor={{ false: "#e5e5e5", true: "#759ef0" }}
+        thumbColor={value ? "#759ef0" : "#fff"}
         ios_backgroundColor="#e5e5e5"
       />
     }
@@ -174,15 +175,29 @@ const Account = () => {
                   instead of pushing the layout wider than the screen. */}
               <View className="flex-row items-center">
                 <View
-                  className="w-14 h-14 rounded-full items-center justify-center mr-3 shrink-0"
-                  style={{ backgroundColor: "#FFF0F3" }}
+                  className="w-26 h-26 rounded-full items-center justify-center mr-3 shrink-0"
+                  style={{ backgroundColor: "transparent" }}
                 >
                   {isLoggedIn ? (
-                    <Text className="text-[20px] font-black text-[#F87387]">
-                      {user?.userName?.charAt(0)?.toUpperCase() ?? "U"}
-                    </Text>
+                    <Image
+                      source={require("../assets/icons/profile.png")}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 13,
+                      }}
+                      resizeMode="cover"
+                    />
                   ) : (
-                    <Ionicons name="person" size={26} color="#F87387" />
+                    <Image
+                      source={require("../assets/icons/no-profile.png")}
+                      style={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: 13,
+                      }}
+                      resizeMode="cover"
+                    />
                   )}
                 </View>
 
@@ -199,54 +214,46 @@ const Account = () => {
                   >
                     {isLoggedIn
                       ? "Welcome back, stay with Cupid."
-                      : "Log in to access your orders, wishlist and exclusive offers."}
+                      : "Log in to get started. And Win Free Gifts!"}
                   </Text>
                 </View>
+                {isLoggedIn ? (
+                  <Pressable
+                    onPress={handleSignOut}
+                    className="flex-row items-center justify-center border border-[#759ef0] rounded-[4px] py-2 px-5 active:bg-[#FFF5F7]"
+                  >
+                    <Feather name="log-out" size={15} color="#759ef0" />
+                    <Text className="text-[#759ef0] font-bold text-[13.5px] ml-2">
+                      Log Out
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <View className="flex-row gap-3">
+                    <Pressable
+                      onPress={() => setOpenLogin(!openLogin)}
+                      className="flex-row items-center justify-center border border-[#b7cbf7] rounded-[4px] py-2 px-5 active:bg-[#CAD9F7]"
+                    >
+                      <Text className="text-[#81a6f0] font-bold text-[13.5px]">
+                        Log In
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
 
               {/* Actions row: full-width flex buttons (flex-1 each) instead of
                   fixed widths, so on narrow screens they shrink together and
                   never clip or overflow — guaranteed equal height via py-3. */}
-              {isLoggedIn ? (
-                <Pressable
-                  onPress={handleSignOut}
-                  className="flex-row items-center justify-center border border-[#F87387] rounded-[6px] py-3 mt-4 active:bg-[#FFF5F7]"
-                >
-                  <Feather name="log-out" size={15} color="#F87387" />
-                  <Text className="text-[#F87387] font-bold text-[13.5px] ml-2">
-                    Log Out
-                  </Text>
-                </Pressable>
-              ) : (
-                <View className="flex-row gap-3 mt-4">
-                  <Pressable
-                    onPress={() => setOpenLogin(!openLogin)}
-                    className="flex-1 items-center justify-center border border-[#F87387] rounded-[6px] py-3 active:bg-[#FFF5F7]"
-                  >
-                    <Text className="text-[#F87387] font-bold text-[13.5px]">
-                      Log In
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setOpenSignup(!openSignup)}
-                    className="flex-1 items-center justify-center bg-[#F87387] rounded-[6px] py-3 active:opacity-90"
-                  >
-                    <Text className="text-white font-bold text-[13.5px]">
-                      Sign Up
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
             </View>
           </View>
 
           {/* ----------------------------QUICK LINKS---------------------------------------  */}
           <View className="flex-row bg-white mx-4 mt-2 rounded-md border border-[#f0f0f0] overflow-hidden">
             {[
+              { icon: "edit", label: "Edit Profile", route: "/EditProfile" },
               { icon: "package", label: "Orders", route: "/Orders" },
               { icon: "heart", label: "Wishlist", route: "/Wishlist" },
               { icon: "map-pin", label: "Addresses", route: "/Addresses" },
-              // { icon: "credit-card", label: "Payments", route: "/Payment" },
             ].map((item, i, arr) => (
               <Pressable
                 onPress={() => router.push(item.route as any)}
@@ -255,7 +262,7 @@ const Account = () => {
                   i < arr.length - 1 ? "border-r border-[#f0f0f0]" : ""
                 }`}
               >
-                <Feather name={item.icon as any} size={20} color="#F87387" />
+                <Feather name={item.icon as any} size={20} color="#759ef0" />
                 <Text className="text-[11px] font-semibold text-[#444] mt-1.5">
                   {item.label}
                 </Text>

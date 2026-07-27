@@ -129,7 +129,7 @@ const ProductGallery = React.memo(
                   width: i === activeImage ? 18 : 6,
                   height: 4,
                   borderRadius: 99,
-                  backgroundColor: i === activeImage ? "#F87387" : "#d8d8d8",
+                  backgroundColor: i === activeImage ? "#759EF0" : "#d8d8d8",
                 }}
               />
             ))}
@@ -153,7 +153,7 @@ const ProductGallery = React.memo(
                     height: 60,
                     borderRadius: 6,
                     borderWidth: activeImage === i ? 1.5 : 0.5,
-                    borderColor: activeImage === i ? "#F87387" : "#eee",
+                    borderColor: activeImage === i ? "#759EF0DB" : "#eee",
                   }}
                   resizeMode="cover"
                 />

@@ -17,9 +17,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 const NAV_ITEMS = [
   "Women",
   "Men",
+  "Best Sellers",
   "Plus-Size",
-  "Deal's & Offers",
-  "New-Arrivals",
+  // "Deal's & Offers",
+  // "New-Arrivals",
 ];
 
 export default function Header({
@@ -211,8 +212,11 @@ export default function Header({
         className="mt-1"
         contentContainerStyle={{
           paddingHorizontal: 18,
-          paddingBottom: 12,
+          paddingBottom: 4,
           gap: 28,
+          flex: 1,
+          flexDirection: "row",
+          justifyContent: "space-between",
         }}
       >
         {NAV_ITEMS.map((item) => {

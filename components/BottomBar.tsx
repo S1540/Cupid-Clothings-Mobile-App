@@ -5,7 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { useCartStore } from "@/store/cartStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const ACTIVE = "#F87387";
+const ACTIVE = "#81a6f0";
 const INACTIVE = "#8A8A8A";
 
 export default function BottomBar() {
@@ -34,7 +34,7 @@ export default function BottomBar() {
             width: 50,
             height: 50,
             borderRadius: 25,
-            backgroundColor: active ? "#FFF0F4" : "transparent",
+            backgroundColor: active ? "#B3C9F543" : "transparent",
             alignItems: "center",
             justifyContent: "center",
           }}
