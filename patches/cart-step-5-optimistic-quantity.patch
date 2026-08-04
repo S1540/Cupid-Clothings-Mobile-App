@@ -1,0 +1,424 @@
+﻿diff --git a/app/Cart.tsx b/app/Cart.tsx
+index 6e9add7..37f934e 100644
+--- a/app/Cart.tsx
++++ b/app/Cart.tsx
+@@ -1,9 +1,10 @@
+ import CartSkeleton from "@/components/CartSkeleton";
+ import LoginModel from "@/components/modal/LoginModel";
+ import SignUpModel from "@/components/modal/SignUpModel";
+-import { auth, db } from "@/firebaseConfig";
++import { auth } from "@/firebaseConfig";
++import { loadCart, removeCartLine, setCartLineQuantity } from "@/lib/cart";
+ import { createCheckoutCart } from "@/lib/shopify";
+-import { useCartStore } from "@/store/cartStore";
++import { type CartItem, useCartStore } from "@/store/cartStore";
+ import { useLocationStore } from "@/store/useLocationStore";
+ import {
+   EvilIcons,
+@@ -11,11 +12,10 @@ import {
+   Ionicons,
+   MaterialCommunityIcons,
+ } from "@expo/vector-icons";
+-import AsyncStorage from "@react-native-async-storage/async-storage";
+ import { Stack, useRouter } from "expo-router";
+-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
+-import React, { useCallback, useEffect, useMemo, useState } from "react";
++import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+ import {
++  Alert,
+   FlatList,
+   Image,
+   KeyboardAvoidingView,
+@@ -33,19 +33,6 @@ import {
+ } from "react-native";
+ import { useSafeAreaInsets } from "react-native-safe-area-context";
+ 
+-type CartItem = {
+-  id: string;
+-  handle: string;
+-  variantId: string;
+-  title: string;
+-  image: string;
+-  price: number;
+-  compareAtPrice?: number;
+-  discountPercent?: number;
+-  size: string;
+-  quantity: number;
+-};
+-
+ const C = {
+   pink: "#F87387",
+   pinkDeep: "#F87395",
+@@ -1040,6 +1027,10 @@ export default function Cart() {
+   const [openSignup, setOpenSignup] = useState(false);
+   const setCartItems = useCartStore((s) => s.setCartItems);
+   const cartItems = useCartStore((s) => s.cartItems);
++  const cartCount = useCartStore((s) => s.cartCount);
++  const setCartItemQuantity = useCartStore((s) => s.setCartItemQuantity);
++  const removeCartItem = useCartStore((s) => s.removeCartItem);
++  const persistenceQueue = useRef(Promise.resolve());
+   const insets = useSafeAreaInsets();
+   const { width: windowWidth } = useWindowDimensions();
+   const isTablet = windowWidth >= TABLET_BREAKPOINT;
+@@ -1077,96 +1068,91 @@ export default function Cart() {
+     (async () => {
+       try {
+         await new Promise((r) => setTimeout(r, 0));
+-        const user = auth.currentUser;
+-        if (user) {
+-          const snap = await getDocs(collection(db, "users", user.uid, "cart"));
+-          const items: CartItem[] = snap.docs.map((d) => ({
+-            id: d.id,
+-            ...(d.data() as Omit<CartItem, "id">),
+-          }));
+-          setCartItems(items);
+-          setLoading(false);
+-        } else {
+-          const raw = await AsyncStorage.getItem("cartItems");
+-          setCartItems(raw ? JSON.parse(raw) : []);
+-          setLoading(false);
+-        }
++        const items = await loadCart(auth.currentUser);
++        setCartItems(items);
++        setLoading(false);
+       } catch (e) {
+         console.error(e);
++        setLoading(false);
+       }
+     })();
+   }, []);
+ 
+-  const remove = useCallback(
+-    async (id: string) => {
+-      const updated = cartItems.filter((i) => i.id !== id);
+-      setCartItems(updated);
+-      try {
+-        const user = auth.currentUser;
+-        if (user)
+-          await deleteDoc(
+-            doc(db, "users", user.uid, "cart", id.split("/").pop()!),
+-          );
+-        else await AsyncStorage.setItem("cartItems", JSON.stringify(updated));
+-      } catch (e) {
+-        console.error(e);
+-      }
++  const enqueuePersistence = useCallback(
++    (operation: () => Promise<unknown>) => {
++      persistenceQueue.current = persistenceQueue.current
++        .catch(() => undefined)
++        .then(async () => {
++          await operation();
++        })
++        .catch(async (error) => {
++          console.error("Cart persistence error:", error);
++          try {
++            setCartItems(await loadCart(auth.currentUser));
++          } catch (reloadError) {
++            console.error("Cart reload error:", reloadError);
++          }
++        });
+     },
+-    [cartItems, setCartItems],
++    [setCartItems],
+   );
+ 
+-  const persist = useCallback(
+-    async (items: CartItem[]) => {
+-      setCartItems(items);
+-      if (!auth.currentUser)
+-        await AsyncStorage.setItem("cartItems", JSON.stringify(items));
++  const remove = useCallback(
++    (cartKey: string) => {
++      removeCartItem(cartKey);
++      enqueuePersistence(() => removeCartLine(auth.currentUser, cartKey));
+     },
+-    [setCartItems],
++    [enqueuePersistence, removeCartItem],
+   );
+ 
+   const increase = useCallback(
+-    (id: string) =>
+-      persist(
+-        cartItems.map((i) =>
+-          i.id === id ? { ...i, quantity: i.quantity + 1 } : i,
+-        ),
+-      ),
+-    [cartItems, persist],
++    (cartKey: string) => {
++      const item = useCartStore
++        .getState()
++        .cartItems.find((current) => current.cartKey === cartKey);
++      if (!item) return;
++
++      const quantity = item.quantity + 1;
++      setCartItemQuantity(cartKey, quantity);
++      enqueuePersistence(() =>
++        setCartLineQuantity(auth.currentUser, cartKey, quantity),
++      );
++    },
++    [enqueuePersistence, setCartItemQuantity],
+   );
+ 
+   const decrease = useCallback(
+-    async (id: string) => {
+-      const item = cartItems.find((i) => i.id === id);
++    (cartKey: string) => {
++      const item = useCartStore
++        .getState()
++        .cartItems.find((current) => current.cartKey === cartKey);
+ 
+       if (!item) return;
+-      if (item.quantity <= 0) {
+-        await remove(id);
++      if (item.quantity <= 1) {
++        remove(cartKey);
+         return;
+       }
+ 
+-      persist(
+-        cartItems.map((i) =>
+-          i.id === id ? { ...i, quantity: i.quantity - 1 } : i,
+-        ),
++      const quantity = item.quantity - 1;
++      setCartItemQuantity(cartKey, quantity);
++      enqueuePersistence(() =>
++        setCartLineQuantity(auth.currentUser, cartKey, quantity),
+       );
+     },
+-    [cartItems, persist, remove],
++    [enqueuePersistence, remove, setCartItemQuantity],
+   );
+ 
+-  const keyExtractor = useCallback(
+-    (item: CartItem, i: number) => `${item.id}-${item.size ?? i}`,
+-    [],
+-  );
++  const keyExtractor = useCallback((item: CartItem) => item.cartKey, []);
+ 
+   const renderItem = useCallback(
+     ({ item }: { item: CartItem }) => (
+       <CartItemRow
+         item={item}
+         onCheckout={() => handleCheckoutSingleProduct(item)}
+-        onIncrease={() => increase(item.id)}
+-        onDecrease={() => decrease(item.id)}
+-        onRemove={() => remove(item.id)}
+-        onWishlist={() => console.log("wishlist", item.id)}
++        onIncrease={() => increase(item.cartKey)}
++        onDecrease={() => decrease(item.cartKey)}
++        onRemove={() => remove(item.cartKey)}
++        onWishlist={() => console.log("wishlist", item.productId)}
+         onNavigate={() =>
+           router.push({
+             pathname: "/product/[handle]",
+@@ -1211,12 +1197,12 @@ export default function Cart() {
+ 
+         <View style={S.bagRow}>
+           <Text style={S.bagTitle} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+-            My Bag <Text style={S.bagCount}>({cartItems.length})</Text>
++            My Bag <Text style={S.bagCount}>({cartCount})</Text>
+           </Text>
+         </View>
+       </View>
+     ),
+-    [locationName, cartItems.length],
++    [locationName, cartCount],
+   );
+ 
+   const ListFooter = useCallback(() => {
+@@ -1233,7 +1219,7 @@ export default function Cart() {
+ 
+           <View style={S.priceLineRow}>
+             <Text style={S.priceLbl} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+-              MRP ({cartItems.length} item{cartItems.length > 1 ? "s" : ""})
++              MRP ({cartCount} item{cartCount > 1 ? "s" : ""})
+             </Text>
+             <Text style={S.priceVal} maxFontSizeMultiplier={FONT_SCALE_TIGHT}>
+               ₹{subtotal + saved}
+@@ -1301,16 +1287,11 @@ export default function Cart() {
+         <TrustBadges />
+       </>
+     );
+-  }, [cartItems.length, subtotal, saved, shipping, total]);
++  }, [cartCount, cartItems.length, subtotal, saved, shipping, total]);
+ 
+   const handleCheckoutSingleProduct = useCallback(
+     async (product: CartItem) => {
+       try {
+-        if (!auth.currentUser) {
+-          setOpenLogin(true);
+-          return;
+-        }
+-
+         const res = await createCheckoutCart([product], auth.currentUser);
+ 
+         const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
+@@ -1321,8 +1302,13 @@ export default function Cart() {
+           pathname: "/CheckoutWebview",
+           params: { url: checkoutUrl },
+         });
+-      } catch (e) {
+-        console.log(e);
++      } catch (error) {
++        Alert.alert(
++          "Checkout unavailable",
++          error instanceof Error
++            ? error.message
++            : "We couldn't start checkout. Please try again.",
++        );
+       }
+     },
+     [router],
+@@ -1330,22 +1316,21 @@ export default function Cart() {
+ 
+   const handleCheckout = useCallback(async () => {
+     try {
+-      if (!auth.currentUser) {
+-        setOpenLogin(true);
+-        return;
+-      }
+       const res = await createCheckoutCart(cartItems, auth.currentUser);
+       const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
+-      if (!checkoutUrl) {
+-        console.log("NO CHECKOUT URL");
+-        return;
+-      }
++      if (!checkoutUrl)
++        throw new Error("Shopify did not return a checkout URL.");
+       router.push({
+         pathname: "/CheckoutWebview",
+         params: { url: checkoutUrl },
+       });
+     } catch (error) {
+-      console.log("CHECKOUT ERROR", error);
++      Alert.alert(
++        "Checkout unavailable",
++        error instanceof Error
++          ? error.message
++          : "We couldn't start checkout. Please try again.",
++      );
+     }
+   }, [cartItems, router]);
+ 
+@@ -1420,7 +1405,7 @@ export default function Cart() {
+               initialNumToRender={5}
+             />
+             <CheckoutBar
+-              count={cartItems.length}
++              count={cartCount}
+               total={total}
+               shipping={shipping}
+               onCheckout={handleCheckout}
+diff --git a/store/cartStore.ts b/store/cartStore.ts
+index 4fa9cbf..08826ca 100644
+--- a/store/cartStore.ts
++++ b/store/cartStore.ts
+@@ -1,9 +1,15 @@
+ import { create } from "zustand";
+ 
++/**
++ * The only cart-line shape used by the app. `cartKey` is derived from the
++ * Shopify product and variant IDs, so two variants of one product stay
++ * independent everywhere the cart is stored.
++ */
+ export type CartItem = {
+-  id: string;
+-  title: string;
++  cartKey: string;
++  productId: string;
+   variantId: string;
++  title: string;
+   image: string;
+   price: number;
+   compareAtPrice?: number;
+@@ -13,11 +19,22 @@ export type CartItem = {
+   size: string;
+ };
+ 
++export const CART_STORAGE_KEY = "cartItems";
++
++export function createCartKey(productId: string, variantId: string): string {
++  return `${productId}::${variantId}`;
++}
++
++export function getCartQuantity(items: CartItem[]): number {
++  return items.reduce((total, item) => total + item.quantity, 0);
++}
++
+ type CartStore = {
+   cartItems: CartItem[];
+   setCartItems: (items: CartItem[]) => void;
+   addCartItem: (item: CartItem) => void;
+-  removeCartItem: (id: string, size: string) => void;
++  setCartItemQuantity: (cartKey: string, quantity: number) => void;
++  removeCartItem: (cartKey: string) => void;
+   cartCount: number;
+ };
+ 
+@@ -28,43 +45,45 @@ export const useCartStore = create<CartStore>((set, get) => ({
+   setCartItems: (items) =>
+     set({
+       cartItems: items,
+-      cartCount: items.length,
++      cartCount: getCartQuantity(items),
+     }),
+ 
+   addCartItem: (item) => {
+     const existing = get().cartItems;
+-    const already = existing.find(
+-      (i) => i.id === item.id && i.size === item.size,
+-    );
++    const already = existing.find((current) => current.cartKey === item.cartKey);
++    const updated = already
++      ? existing.map((current) =>
++          current.cartKey === item.cartKey
++            ? { ...current, quantity: current.quantity + item.quantity }
++            : current,
++        )
++      : [item, ...existing];
+ 
+-    let updated = [];
+-    if (already) {
+-      updated = existing.map((i) =>
+-        i.id === item.id && i.size === item.size
+-          ? {
+-              ...i,
+-              quantity: i.quantity + 1,
+-            }
+-          : i,
+-      );
+-    } else {
+-      updated = [item, ...existing];
+-    }
++    set({
++      cartItems: updated,
++      cartCount: getCartQuantity(updated),
++    });
++  },
++
++  setCartItemQuantity: (cartKey, quantity) => {
++    const updated = get().cartItems.map((item) =>
++      item.cartKey === cartKey ? { ...item, quantity } : item,
++    );
+ 
+     set({
+       cartItems: updated,
+-      cartCount: updated.length,
++      cartCount: getCartQuantity(updated),
+     });
+   },
+ 
+-  removeCartItem: (id, size) => {
++  removeCartItem: (cartKey) => {
+     const updated = get().cartItems.filter(
+-      (i) => !(i.id === id && i.size === size),
++      (item) => item.cartKey !== cartKey,
+     );
+ 
+     set({
+       cartItems: updated,
+-      cartCount: updated.length,
++      cartCount: getCartQuantity(updated),
+     });
+   },
+ }));

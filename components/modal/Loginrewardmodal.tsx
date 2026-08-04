@@ -1,4 +1,3 @@
-// components/modal/Loginrewardmodal.tsx
 import LottieView from "lottie-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -332,7 +331,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     width: "100%",
     backgroundColor: "#F87387",
-    borderRadius: 8,
+    borderRadius: 2,
     paddingVertical: 16,
     alignItems: "center",
     marginBottom: 10,

@@ -164,11 +164,11 @@ const ProductCard = memo(
                   flexDirection: "row",
                   alignItems: "center",
                   marginTop: 4,
-                  // marginBottom: 2,
+                  opacity: 0.9,
                   paddingVertical: 1,
                   paddingHorizontal: 2,
                   borderRadius: 2,
-                  backgroundColor: "rgba(255,255,255,0.55)",
+                  backgroundColor: "rgba(255,255,255,0.88)",
                 }}
               >
                 <MaterialCommunityIcons name="star" size={13} color="#F59E0B" />
@@ -273,13 +273,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 8,
     right: 8,
-    backgroundColor: "rgba(255,255,255,0.45)",
+    backgroundColor: "rgba(255,255,255,0.85)",
     borderRadius: 20,
     width: 30,
     height: 30,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
+    opacity: 0.9,
   },
   productTitle: {
     fontSize: 12,

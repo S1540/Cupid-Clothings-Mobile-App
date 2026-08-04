@@ -1,9 +1,11 @@
 import CartSkeleton from "@/components/CartSkeleton";
 import LoginModel from "@/components/modal/LoginModel";
 import SignUpModel from "@/components/modal/SignUpModel";
+import SuccessToast from "@/components/SuccessToast";
 import { auth, db } from "@/firebaseConfig";
+import { loadCart, removeCartLine, setCartLineQuantity } from "@/lib/cart";
 import { createCheckoutCart } from "@/lib/shopify";
-import { useCartStore } from "@/store/cartStore";
+import { type CartItem, useCartStore } from "@/store/cartStore";
 import { useLocationStore } from "@/store/useLocationStore";
 import {
   EvilIcons,
@@ -11,11 +13,11 @@ import {
   Ionicons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useRouter } from "expo-router";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -32,19 +34,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-type CartItem = {
-  id: string;
-  handle: string;
-  variantId: string;
-  title: string;
-  image: string;
-  price: number;
-  compareAtPrice?: number;
-  discountPercent?: number;
-  size: string;
-  quantity: number;
-};
 
 const C = {
   pink: "#F87387",
@@ -388,7 +377,7 @@ const S = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     backgroundColor: C.greenBg,
-    borderRadius: 8,
+    borderRadius: 4,
     paddingVertical: 8,
     paddingHorizontal: 8,
     marginBottom: 10,
@@ -557,6 +546,7 @@ const CartItemRow = React.memo(
     onRemove,
     onNavigate,
     onWishlist,
+    isWishlisted,
   }: {
     item: CartItem;
     onIncrease: () => void;
@@ -565,6 +555,7 @@ const CartItemRow = React.memo(
     onRemove: () => void;
     onNavigate: () => void;
     onWishlist: () => void;
+    isWishlisted: boolean;
   }) => {
     const hasDiscount =
       !!item.compareAtPrice && item.compareAtPrice > item.price;
@@ -615,8 +606,8 @@ const CartItemRow = React.memo(
                 <Text
                   style={{
                     fontSize: 11.5,
-                    fontWeight: "500",
-                    color: C.inkMid,
+                    fontWeight: "700",
+                    color: C.black,
                   }}
                   maxFontSizeMultiplier={FONT_SCALE_TIGHT}
                   numberOfLines={1}
@@ -722,7 +713,11 @@ const CartItemRow = React.memo(
               >
                 {/* Wishlist */}
                 <Pressable onPress={onWishlist} style={S.actionBtn}>
-                  <Ionicons name="heart-outline" size={24} color={C.inkDark} />
+                  <Ionicons
+                    name={isWishlisted ? "heart" : "heart-outline"}
+                    size={24}
+                    color={isWishlisted ? C.pink : C.inkDark}
+                  />
                   {/* <Text
                     style={S.actionBtnTxt}
                     numberOfLines={1}
@@ -851,7 +846,7 @@ const CheckoutBar = React.memo(
               <View
                 style={{
                   height: 56,
-                  borderRadius: 8,
+                  borderRadius: 4,
                   backgroundColor: pressed ? C.pinkDeep : C.pink,
                   flexDirection: "row",
                   alignItems: "center",
@@ -1035,11 +1030,16 @@ export default function Cart() {
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pinCode, setPinCode] = useState("");
   const [wishlist, setWishlist] = useState(false);
+  const [wishlistProductIds, setWishlistProductIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [loading, setLoading] = useState(true);
   const [openLogin, setOpenLogin] = useState(false);
   const [openSignup, setOpenSignup] = useState(false);
+  const [showWishlistToast, setShowWishlistToast] = useState(false);
   const setCartItems = useCartStore((s) => s.setCartItems);
   const cartItems = useCartStore((s) => s.cartItems);
+  const cartCount = useCartStore((s) => s.cartCount);
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const isTablet = windowWidth >= TABLET_BREAKPOINT;
@@ -1077,96 +1077,145 @@ export default function Cart() {
     (async () => {
       try {
         await new Promise((r) => setTimeout(r, 0));
-        const user = auth.currentUser;
-        if (user) {
-          const snap = await getDocs(collection(db, "users", user.uid, "cart"));
-          const items: CartItem[] = snap.docs.map((d) => ({
-            id: d.id,
-            ...(d.data() as Omit<CartItem, "id">),
-          }));
-          setCartItems(items);
-          setLoading(false);
-        } else {
-          const raw = await AsyncStorage.getItem("cartItems");
-          setCartItems(raw ? JSON.parse(raw) : []);
-          setLoading(false);
-        }
+        const items = await loadCart(auth.currentUser);
+        setCartItems(items);
+        setLoading(false);
       } catch (e) {
         console.error(e);
+        setLoading(false);
       }
     })();
   }, []);
 
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      setWishlistProductIds(new Set());
+      return;
+    }
+
+    return onSnapshot(collection(db, "users", user.uid, "wishlist"), (snapshot) => {
+      setWishlistProductIds(new Set(snapshot.docs.map((wishlistItem) => wishlistItem.id)));
+    });
+  }, []);
+
   const remove = useCallback(
-    async (id: string) => {
-      const updated = cartItems.filter((i) => i.id !== id);
-      setCartItems(updated);
+    async (cartKey: string) => {
       try {
-        const user = auth.currentUser;
-        if (user)
-          await deleteDoc(
-            doc(db, "users", user.uid, "cart", id.split("/").pop()!),
-          );
-        else await AsyncStorage.setItem("cartItems", JSON.stringify(updated));
+        const updated = await removeCartLine(auth.currentUser, cartKey);
+        setCartItems(updated);
       } catch (e) {
         console.error(e);
       }
-    },
-    [cartItems, setCartItems],
-  );
-
-  const persist = useCallback(
-    async (items: CartItem[]) => {
-      setCartItems(items);
-      if (!auth.currentUser)
-        await AsyncStorage.setItem("cartItems", JSON.stringify(items));
     },
     [setCartItems],
   );
 
   const increase = useCallback(
-    (id: string) =>
-      persist(
-        cartItems.map((i) =>
-          i.id === id ? { ...i, quantity: i.quantity + 1 } : i,
-        ),
-      ),
-    [cartItems, persist],
+    async (cartKey: string) => {
+      const item = cartItems.find((current) => current.cartKey === cartKey);
+      if (!item) return;
+
+      try {
+        const updated = await setCartLineQuantity(
+          auth.currentUser,
+          cartKey,
+          item.quantity + 1,
+        );
+        setCartItems(updated);
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    [cartItems, setCartItems],
   );
 
   const decrease = useCallback(
-    async (id: string) => {
-      const item = cartItems.find((i) => i.id === id);
+    async (cartKey: string) => {
+      const item = cartItems.find((current) => current.cartKey === cartKey);
 
       if (!item) return;
-      if (item.quantity <= 0) {
-        await remove(id);
+      if (item.quantity <= 1) {
+        await remove(cartKey);
         return;
       }
 
-      persist(
-        cartItems.map((i) =>
-          i.id === id ? { ...i, quantity: i.quantity - 1 } : i,
-        ),
-      );
+      try {
+        const updated = await setCartLineQuantity(
+          auth.currentUser,
+          cartKey,
+          item.quantity - 1,
+        );
+        setCartItems(updated);
+      } catch (error) {
+        console.error(error);
+      }
     },
-    [cartItems, persist, remove],
+    [cartItems, remove, setCartItems],
   );
 
-  const keyExtractor = useCallback(
-    (item: CartItem, i: number) => `${item.id}-${item.size ?? i}`,
-    [],
-  );
+  const addToWishlist = useCallback(async (item: CartItem) => {
+    const user = auth.currentUser;
+    if (!user) {
+      setOpenLogin(true);
+      return;
+    }
+
+    const productId = item.productId.split("/").pop();
+    if (!productId) {
+      Alert.alert("Couldn't save item", "This product has an invalid ID.");
+      return;
+    }
+
+    const isWishlisted = wishlistProductIds.has(productId);
+
+    try {
+      if (isWishlisted) {
+        await deleteDoc(doc(db, "users", user.uid, "wishlist", productId));
+        setWishlistProductIds((currentIds) => {
+          const nextIds = new Set(currentIds);
+          nextIds.delete(productId);
+          return nextIds;
+        });
+        return;
+      }
+
+      await setDoc(doc(db, "users", user.uid, "wishlist", productId), {
+        id: productId,
+        handle: item.handle,
+        title: item.title,
+        image: item.image,
+        price: Number(item.price),
+        compareAtPrice: item.compareAtPrice
+          ? Number(item.compareAtPrice)
+          : null,
+        discount: item.discountPercent || 0,
+        stock: 999,
+        variantId: item.variantId,
+        size: item.size,
+        addedAt: Date.now(),
+      });
+      setWishlistProductIds((currentIds) => new Set(currentIds).add(productId));
+      setShowWishlistToast(true);
+      setTimeout(() => setShowWishlistToast(false), 1500);
+    } catch (error) {
+      console.error("Cart wishlist save error:", error);
+      Alert.alert("Couldn't save item", "Please try again.");
+    }
+  }, [wishlistProductIds]);
+
+  const keyExtractor = useCallback((item: CartItem) => item.cartKey, []);
 
   const renderItem = useCallback(
     ({ item }: { item: CartItem }) => (
       <CartItemRow
         item={item}
         onCheckout={() => handleCheckoutSingleProduct(item)}
-        onIncrease={() => increase(item.id)}
-        onDecrease={() => decrease(item.id)}
-        onRemove={() => remove(item.id)}
-        onWishlist={() => console.log("wishlist", item.id)}
+        onIncrease={() => increase(item.cartKey)}
+        onDecrease={() => decrease(item.cartKey)}
+        onRemove={() => remove(item.cartKey)}
+        onWishlist={() => addToWishlist(item)}
+        isWishlisted={wishlistProductIds.has(item.productId.split("/").pop() || "")}
         onNavigate={() =>
           router.push({
             pathname: "/product/[handle]",
@@ -1175,7 +1224,7 @@ export default function Cart() {
         }
       />
     ),
-    [increase, decrease, remove, router],
+    [increase, decrease, remove, addToWishlist, router, wishlistProductIds],
   );
 
   const locationName = useLocationStore((state) => state.location);
@@ -1211,12 +1260,12 @@ export default function Cart() {
 
         <View style={S.bagRow}>
           <Text style={S.bagTitle} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
-            My Bag <Text style={S.bagCount}>({cartItems.length})</Text>
+            My Bag <Text style={S.bagCount}>({cartCount})</Text>
           </Text>
         </View>
       </View>
     ),
-    [locationName, cartItems.length],
+    [locationName, cartCount],
   );
 
   const ListFooter = useCallback(() => {
@@ -1233,7 +1282,7 @@ export default function Cart() {
 
           <View style={S.priceLineRow}>
             <Text style={S.priceLbl} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
-              MRP ({cartItems.length} item{cartItems.length > 1 ? "s" : ""})
+              MRP ({cartCount} item{cartCount > 1 ? "s" : ""})
             </Text>
             <Text style={S.priceVal} maxFontSizeMultiplier={FONT_SCALE_TIGHT}>
               ₹{subtotal + saved}
@@ -1301,16 +1350,11 @@ export default function Cart() {
         <TrustBadges />
       </>
     );
-  }, [cartItems.length, subtotal, saved, shipping, total]);
+  }, [cartCount, cartItems.length, subtotal, saved, shipping, total]);
 
   const handleCheckoutSingleProduct = useCallback(
     async (product: CartItem) => {
       try {
-        if (!auth.currentUser) {
-          setOpenLogin(true);
-          return;
-        }
-
         const res = await createCheckoutCart([product], auth.currentUser);
 
         const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
@@ -1321,8 +1365,13 @@ export default function Cart() {
           pathname: "/CheckoutWebview",
           params: { url: checkoutUrl },
         });
-      } catch (e) {
-        console.log(e);
+      } catch (error) {
+        Alert.alert(
+          "Checkout unavailable",
+          error instanceof Error
+            ? error.message
+            : "We couldn't start checkout. Please try again.",
+        );
       }
     },
     [router],
@@ -1330,22 +1379,21 @@ export default function Cart() {
 
   const handleCheckout = useCallback(async () => {
     try {
-      if (!auth.currentUser) {
-        setOpenLogin(true);
-        return;
-      }
       const res = await createCheckoutCart(cartItems, auth.currentUser);
       const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
-      if (!checkoutUrl) {
-        console.log("NO CHECKOUT URL");
-        return;
-      }
+      if (!checkoutUrl)
+        throw new Error("Shopify did not return a checkout URL.");
       router.push({
         pathname: "/CheckoutWebview",
         params: { url: checkoutUrl },
       });
     } catch (error) {
-      console.log("CHECKOUT ERROR", error);
+      Alert.alert(
+        "Checkout unavailable",
+        error instanceof Error
+          ? error.message
+          : "We couldn't start checkout. Please try again.",
+      );
     }
   }, [cartItems, router]);
 
@@ -1380,7 +1428,7 @@ export default function Cart() {
                 <Feather name="search" size={26} color="#555" />
               </Pressable>
               <Pressable
-                onPress={() => setWishlist((w) => !w)}
+                onPress={() => router.push("/Wishlist")}
                 style={S.headerBtn}
                 hitSlop={8}
               >
@@ -1420,7 +1468,7 @@ export default function Cart() {
               initialNumToRender={5}
             />
             <CheckoutBar
-              count={cartItems.length}
+              count={cartCount}
               total={total}
               shipping={shipping}
               onCheckout={handleCheckout}
@@ -1517,6 +1565,12 @@ export default function Cart() {
               openSignup={setOpenSignup}
             />
             <SignUpModel openModal={openSignup} setOpenModal={setOpenSignup} />
+            <SuccessToast
+              visible={showWishlistToast}
+              text="Added to wishlist"
+              pathname="/Wishlist"
+              linkText="Go to wishlist"
+            />
           </>
         )}
       </View>

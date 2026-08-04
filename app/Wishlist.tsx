@@ -1,5 +1,12 @@
 import { useCartStore } from "@/store/cartStore";
-import { EvilIcons, Feather, Ionicons } from "@expo/vector-icons";
+import { addCartLine } from "@/lib/cart";
+import { createCartKey } from "@/store/cartStore";
+import {
+  EvilIcons,
+  Feather,
+  Ionicons,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 import { getAuth } from "firebase/auth";
 import {
@@ -442,7 +449,7 @@ export default function WishlistScreen() {
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const addToCart = useCartStore((s) => s.addCartItem);
+  const setCartItems = useCartStore((s) => s.setCartItems);
   const insets = useSafeAreaInsets();
   const auth = getAuth();
   const uid = auth.currentUser?.uid;
@@ -492,22 +499,37 @@ export default function WishlistScreen() {
   );
 
   const handleAddToCart = useCallback(
-    (item: WishlistItem) => {
-      addToCart({
-        id: item.id,
-        title: item.title,
-        image: item.image,
-        price: item.price,
-        compareAtPrice: item.compareAtPrice,
-        discountPercent: item.discount,
-        variantId: item.variantId,
-        handle: item.handle,
-        size: item.size ?? "One Size",
-        quantity: 1,
-      });
-      Alert.alert("Added to Bag", `${item.title} is in your bag.`);
+    async (item: WishlistItem) => {
+      if (!item.variantId) {
+        Alert.alert(
+          "Choose a variant",
+          "Please open this product and select its size or color before adding it to your bag.",
+        );
+        return;
+      }
+
+      try {
+        const cart = await addCartLine(auth.currentUser, {
+          cartKey: createCartKey(item.id, item.variantId),
+          productId: item.id,
+          title: item.title,
+          image: item.image,
+          price: item.price,
+          compareAtPrice: item.compareAtPrice,
+          discountPercent: item.discount,
+          variantId: item.variantId,
+          handle: item.handle,
+          size: item.size ?? "One Size",
+          quantity: 1,
+        });
+        setCartItems(cart);
+        Alert.alert("Added to Bag", `${item.title} is in your bag.`);
+      } catch (error) {
+        console.error("Wishlist add to cart error:", error);
+        Alert.alert("Couldn't add to Bag", "Please try again.");
+      }
     },
-    [addToCart],
+    [auth.currentUser, setCartItems],
   );
 
   const handleQuickView = useCallback((item: WishlistItem) => {
@@ -535,7 +557,7 @@ export default function WishlistScreen() {
               <Text
                 style={{ fontSize: 16, fontWeight: "600", color: "#1a1a1a" }}
               >
-                Wishlist
+                Wishlist0
               </Text>
             ),
             headerShadowVisible: false,
@@ -559,7 +581,7 @@ export default function WishlistScreen() {
                   onPress={() => router.push("/Wishlist")}
                   style={{ padding: 6 }}
                 >
-                  <Ionicons name="heart-outline" size={26} />
+                  <MaterialCommunityIcons name="cart-outline" size={26} />
                 </Pressable>
               </View>
             ),
@@ -602,10 +624,10 @@ export default function WishlistScreen() {
                 <Feather name="search" size={26} color="#555" />
               </Pressable>
               <Pressable
-                onPress={() => router.push("/Wishlist")}
+                onPress={() => router.push("/Cart")}
                 style={{ padding: 6 }}
               >
-                <Ionicons name="heart-outline" size={26} />
+                <Ionicons name="cart-outline" size={28} color="#555" />
               </Pressable>
             </View>
           ),

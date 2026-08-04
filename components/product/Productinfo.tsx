@@ -48,6 +48,7 @@ type ProductInfoProps = {
   >;
   offersVisible?: boolean;
   setOffersVisible?: (v: boolean) => void;
+  onReadMore?: () => void;
 };
 
 // ─── Coupon data (replace with API data later if needed) ───────────────────
@@ -166,7 +167,12 @@ const CouponCard = React.memo(({ coupon }: { coupon: Coupon }) => {
   );
 });
 const ProductInfo = React.memo(
-  ({ product, selectedOptions, setSelectedOptions }: ProductInfoProps) => {
+  ({
+    product,
+    selectedOptions,
+    setSelectedOptions,
+    onReadMore,
+  }: ProductInfoProps) => {
     const router = useRouter();
     const cartCount = useCartStore((s) => s.cartCount);
 
@@ -177,6 +183,17 @@ const ProductInfo = React.memo(
             (o) => o.name === optionName && o.value === value,
           ) && v.available,
       );
+    const selectedVariant = product.variants.find((variant) =>
+      Object.entries(selectedOptions).every(([optionName, optionValue]) =>
+        variant.selectedOptions.some(
+          (option) =>
+            option.name === optionName && option.value === optionValue,
+        ),
+      ),
+    );
+    // console.log("Selected Options:", selectedOptions);
+    // console.log("Selected Variant:", selectedVariant?.title);
+    // console.log("Selected Price:", selectedVariant?.price);
 
     return (
       <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 12 }}>
@@ -223,7 +240,18 @@ const ProductInfo = React.memo(
             fontWeight: "400",
           }}
         >
-          {product.description?.slice(0, 115) + " ..."}
+          {product.description?.slice(0, 115)}
+          {product.description?.length > 115 && (
+            <>
+              <Text>... </Text>
+              <Text
+                onPress={onReadMore}
+                style={{ color: "#F87387", fontWeight: "700" }}
+              >
+                Read more ↓
+              </Text>
+            </>
+          )}
         </Text>
 
         {/* Price row */}
@@ -236,7 +264,7 @@ const ProductInfo = React.memo(
               letterSpacing: -0.7,
             }}
           >
-            ₹{product.price}
+            ₹{selectedVariant?.price ?? product.price}
           </Text>
           {product.compareAtPrice && (
             <Text
@@ -296,7 +324,7 @@ const ProductInfo = React.memo(
                 >
                   Select {option.name}
                 </Text>
-                {option.name === "Size" && (
+                {/* {option.name === "Size" && (
                   <Pressable>
                     <Text
                       style={{
@@ -308,7 +336,7 @@ const ProductInfo = React.memo(
                       Size Guide
                     </Text>
                   </Pressable>
-                )}
+                )} */}
               </View>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {option.values?.map((value) => {

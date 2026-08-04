@@ -46,11 +46,14 @@ import {
   type Offer,
   offerCollections,
   offerCollections2,
-  KidsCollection,
   type offerCollectionsType,
+  kidsImages,
+  type ComfortableItem,
+  COMFORTABLE,
 } from "../../localData/localData";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import WarrningLable from "@/components/WarrningLable";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type Subcategory = { title: string; handle: string; image: string | null };
@@ -119,11 +122,14 @@ type HomeListHeaderProps = {
   offerHeight: number;
   onSnapRef: React.MutableRefObject<((index: number) => void) | null>;
   renderCategory: ListRenderItem<Category>;
+  renderProduct: ListRenderItem<Product>;
   offers?: Offer[];
   offersData?: offerCollectionsType[];
   onPress?: () => void;
   recommendedProducts?: Product[];
   interestedProducts?: Product[];
+  kidsProducts?: Product[];
+  comfortableItems?: ComfortableItem[];
 };
 
 const HomeListHeader = React.memo(
@@ -139,7 +145,8 @@ const HomeListHeader = React.memo(
     renderCategory,
     offers,
     recommendedProducts,
-    interestedProducts,
+    kidsProducts,
+    renderProduct,
   }: HomeListHeaderProps) => {
     const [activeSlide, setActiveSlide] = useState(0);
     useEffect(() => {
@@ -158,10 +165,27 @@ const HomeListHeader = React.memo(
     const filteredOfferCollections = offerCollections.filter(
       (item) => item.gender.toLowerCase() === gender,
     );
-
     const filteredOfferCollections2 = offerCollections2.filter(
       (item) => item.gender.toLowerCase() === gender,
     );
+    const filteredComfortable = COMFORTABLE.filter(
+      (item) => item.gender.toLowerCase() === activeNav.toLowerCase(),
+    );
+    const showHomeSections = activeNav === "Women" || activeNav === "Men";
+
+    const recommendedItems = (recommendedProducts ?? []).map((item) => ({
+      id: item.id,
+      title: item.title,
+      handle: item.handle,
+      image: item.images?.[0]?.url ?? "",
+      price: Number(item.price),
+      compareAtPrice: item.compareAtPrice
+        ? Number(item.compareAtPrice)
+        : undefined,
+      rating: 4.8,
+      reviewCount: 76,
+      badge: undefined,
+    }));
 
     return (
       <>
@@ -216,248 +240,160 @@ const HomeListHeader = React.memo(
           </View>
         )}
         {/* // Collections Bg inside card */}
-        <PromoHotDeals
-          heading="HOT DEALS "
-          backgroundImage={""}
-          data={filteredOfferCollections.map((c) => ({
-            id: c.id,
-            title: c.title,
-            handle: c.handle,
-            image: c.bg,
-          }))}
-        >
-          <View style={{ paddingLeft: 16, marginTop: 8 }}>
-            <FlatList
-              horizontal
-              data={filteredOfferCollections2.map((c) => ({
-                id: c.id,
-                title: c.title,
-                handle: c.handle,
-                image: c.bg,
-              }))}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => router.push(`/category/${item.handle}`)}
-                >
-                  <Image
-                    source={{ uri: item.image }}
-                    style={{
-                      width: 180,
-                      height: 280,
-                      borderRadius: 0,
-                      marginRight: 6,
-                    }}
-                  />
-                </Pressable>
-              )}
-            />
-          </View>
-        </PromoHotDeals>
-        {/* Comfort Zone deal */}
-        <ComfortCategoryGrid
-          title="PICK YOUR COMFORT"
-          subtitle="Styles for every mood & every moment."
-          onPressViewAll={() => router.push("/")}
-          onPress={(item) => router.push(`/category/${item.handle}`)}
-          data={[
-            {
-              id: "1",
-              title: "Gymwear",
-              subtitle: "Move. Sweat. Repeat.",
-              handle: "gymwear",
-              image:
-                "https://res.cloudinary.com/drsoj4c5q/image/upload/v1784811627/gym_xapg0h.png",
-              buttonText: "SHOP NOW",
-              icon: (
-                <MaterialCommunityIcons
-                  name="dumbbell"
-                  size={16}
-                  color="#F0417D"
-                />
-              ),
-            },
-            {
-              id: "2",
-              title: "Travel",
-              subtitle: "Comfort that goes where you go.",
-              handle: "travel-wear",
-              image:
-                "https://res.cloudinary.com/drsoj4c5q/image/upload/v1784811627/travel_k0la06.png",
-              icon: (
-                <MaterialCommunityIcons
-                  name="bag-suitcase"
-                  size={16}
-                  color="#7C3FD6"
-                />
-              ),
-            },
-            {
-              id: "3",
-              title: "Sleepwear",
-              subtitle: "Soft fits for your best sleep.",
-              handle: "night-suits-sets-plus-sizes",
-              image:
-                "https://res.cloudinary.com/drsoj4c5q/image/upload/v1784811627/nightwear_lhzbpb.png",
-              icon: (
-                <MaterialCommunityIcons
-                  name="weather-night"
-                  size={16}
-                  color="#F0417D"
-                />
-              ),
-            },
-            {
-              id: "4",
-              title: "Everyday Wear",
-              subtitle: "Easy, comfy & made for you.",
-              handle: "everyday-wear",
-              image:
-                "https://res.cloudinary.com/drsoj4c5q/image/upload/v1784811628/casual_onyjkj.png",
-              icon: (
-                <MaterialCommunityIcons
-                  name="tshirt-crew"
-                  size={16}
-                  color="#E08A1F"
-                />
-              ),
-            },
-          ]}
-        />
-        {/* Recomended Section */}
-        <RecommendedProductsSection
-          heading="BECAUSE YOU LIKED..."
-          subHeading="More styles we think you'll love"
-          viewedProduct={{
-            title: "Relaxed Fit Track Pants",
-            image: "https://...",
-            subtitle: "You viewed this recently",
-          }}
-          products={[
-            {
-              id: "1",
-              title: "Straight Track Pants",
-              handle: "straight-track-pants",
-              image: "https://...",
-              price: 599,
-              compareAtPrice: 899,
-              rating: 4.7,
-              reviewCount: 1200,
-              badge: "BEST SELLER",
-            },
-            {
-              id: "2",
-              title: "Wide Leg Track Pants",
-              handle: "wide-leg-track-pants",
-              image: "https://...",
-              price: 699,
-              compareAtPrice: 999,
-              rating: 4.6,
-              reviewCount: 892,
-              badge: "NEW",
-            },
-            {
-              id: "2",
-              title: "Wide Leg Track Pants",
-              handle: "wide-leg-track-pants",
-              image: "https://...",
-              price: 699,
-              compareAtPrice: 999,
-              rating: 4.6,
-              reviewCount: 892,
-              badge: "NEW",
-            },
-            {
-              id: "2",
-              title: "Wide Leg Track Pants",
-              handle: "wide-leg-track-pants",
-              image: "https://...",
-              price: 699,
-              compareAtPrice: 999,
-              rating: 4.6,
-              reviewCount: 892,
-              badge: "NEW",
-            },
-          ]}
-          onPressProduct={(item: any) => router.push(`/product/${item.handle}`)}
-          onAddToBag={(item) => null}
-          onWishlist={(item) => null}
-          onViewAll={() => router.push("/")}
-        />
-
-        {/* Just Lunched Kids Wear */}
-        <LinearGradient
-          colors={["#F87387", "#B85CC9", "#759EF0DB"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{ flexDirection: "row", height: 40 }}
-        >
-          <View
-            style={{
-              width: 140,
-              justifyContent: "center",
-              paddingLeft: 14,
-              backgroundColor: "rgba(0,0,0,0.12)",
-            }}
+        {showHomeSections && (
+          <PromoHotDeals
+            heading="HOT DEALS "
+            backgroundImage={""}
+            data={filteredOfferCollections.map((c) => ({
+              id: c.id,
+              title: c.title,
+              handle: c.handle,
+              image: c.bg,
+            }))}
           >
-            <Text
-              style={{
-                color: "#fff",
-                fontSize: 12.5,
-                fontWeight: "800",
-                letterSpacing: 0.8,
-              }}
-            >
-              JUST LAUNCHED
-            </Text>
-          </View>
-
-          <View
-            style={{ flex: 1, overflow: "hidden", justifyContent: "center" }}
-          >
-            <Marquee>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                {ANNOUNCEMENTS.map((item, i) => (
-                  <View
-                    key={i}
-                    style={{ flexDirection: "row", alignItems: "center" }}
+            <View style={{ paddingLeft: 16, marginTop: 8 }}>
+              <FlatList
+                horizontal
+                data={filteredOfferCollections2.map((c) => ({
+                  id: c.id,
+                  title: c.title,
+                  handle: c.handle,
+                  image: c.bg,
+                }))}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <Pressable
+                    onPress={() => router.push(`/category/${item.handle}`)}
                   >
-                    <Text
+                    <Image
+                      source={{ uri: item.image }}
                       style={{
-                        color: "#fff",
-                        fontSize: 12.5,
-                        fontWeight: "600",
-                        opacity: 0.96,
-                        letterSpacing: 0.2,
+                        width: 180,
+                        height: 280,
+                        borderRadius: 0,
+                        marginRight: 6,
                       }}
-                    >
-                      {item}
-                    </Text>
-                    <Text
-                      style={{
-                        color: "#ffffffaa",
-                        fontSize: 13,
-                        fontWeight: "700",
-                        marginHorizontal: 14,
-                      }}
-                    >
-                      •
-                    </Text>
-                  </View>
-                ))}
+                    />
+                  </Pressable>
+                )}
+              />
+            </View>
+          </PromoHotDeals>
+        )}
+        {/* Comfort Zone deal */}
+        {showHomeSections && (
+          <ComfortCategoryGrid
+            title="PICK YOUR COMFORT"
+            subtitle="Styles for every mood & every moment."
+            onPressViewAll={() => router.push("/")}
+            onPress={(item) => router.push(`/category/${item.handle}`)}
+            data={filteredComfortable.map((c) => ({
+              id: c.id,
+              title: c.title,
+              subtitle: c.subtitle,
+              handle: c.handle,
+              image: c.image,
+              icon: c.icon,
+            }))}
+          />
+        )}
+        {/* Recomended Section */}
+        {showHomeSections && (
+          <RecommendedProductsSection
+            heading="PICK YOUR INTERESTS"
+            subHeading="More styles we think you'll love"
+            products={recommendedItems}
+            onPressProduct={(item: any) =>
+              router.push(`/product/${item.handle}`)
+            }
+            onAddToBag={(item) => null}
+            onWishlist={(item) => null}
+            onViewAll={() => router.push("/")}
+          />
+        )}
+        {/* Just Lunched Kids Wear */}
+        {activeNav === "Women" && (
+          <>
+            <LinearGradient
+              colors={["#F87387", "#B85CC9", "#759EF0DB"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ flexDirection: "row", height: 40 }}
+            >
+              <View
+                style={{
+                  width: 140,
+                  justifyContent: "center",
+                  paddingLeft: 14,
+                  backgroundColor: "rgba(0,0,0,0.12)",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 12.5,
+                    fontWeight: "800",
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  JUST LAUNCHED
+                </Text>
               </View>
-            </Marquee>
-          </View>
-        </LinearGradient>
-        <KidsCollections
-          backgroundImage={""}
-          data={KidsCollection.map((c) => ({
-            id: c.id,
-            title: c.title,
-            handle: c.handle,
-            image: c.bg,
-          }))}
-        ></KidsCollections>
+
+              <View
+                style={{
+                  flex: 1,
+                  overflow: "hidden",
+                  justifyContent: "center",
+                }}
+              >
+                <Marquee>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {ANNOUNCEMENTS.map((item, i) => (
+                      <View
+                        key={i}
+                        style={{ flexDirection: "row", alignItems: "center" }}
+                      >
+                        <Text
+                          style={{
+                            color: "#fff",
+                            fontSize: 12.5,
+                            fontWeight: "600",
+                            opacity: 0.96,
+                            letterSpacing: 0.2,
+                          }}
+                        >
+                          {item}
+                        </Text>
+                        <Text
+                          style={{
+                            color: "#ffffffaa",
+                            fontSize: 13,
+                            fontWeight: "700",
+                            marginHorizontal: 14,
+                          }}
+                        >
+                          •
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </Marquee>
+              </View>
+            </LinearGradient>
+            <KidsCollections
+              backgroundImage={""}
+              data={kidsProducts!.map((item) => ({
+                id: item.id,
+                title: item.title,
+                handle: item.handle,
+                image: kidsImages[item.handle] ?? item.images[0]?.url,
+              }))}
+            />
+          </>
+        )}
+        {/* Warrrning Label */}
+        {showHomeSections && <WarrningLable />}
       </>
     );
   },
@@ -705,15 +641,18 @@ export default function Index() {
   const [similarModal, setSimilarModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [interestedProducts, setInterestedProducts] = useState<Product[]>([]);
-  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const [reviewSummary, setReviewSummary] = useState<any>(null);
+  const [kidsProducts, setKidsProducts] = useState<Product[]>([]);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     priceRange: null,
     sizes: [],
     discount: null,
     sort: null,
   });
-
+  const showHomeLayout = activeNav === "Women" || activeNav === "Men";
+  const collectionHandle =
+    activeNav === "Best Sellers" ? "bestseller" : activeNav.toLowerCase();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const snapRef = useRef<((index: number) => void) | null>(null);
@@ -798,7 +737,7 @@ export default function Index() {
       if (!isFirstLoad.current) setRefreshing(true);
       try {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${activeNav.toLowerCase()}`,
+          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${collectionHandle}`,
         );
         const data: Product[] = await response.json();
         setAllProducts(shuffleArray(data));
@@ -813,7 +752,25 @@ export default function Index() {
       }
     };
     fetchProduct();
+  }, [collectionHandle]);
+  // fetch kids Productss data
+  useEffect(() => {
+    const fetchKids = async () => {
+      try {
+        if (activeNav === "Women") {
+          const response = await fetch(
+            `${process.env.EXPO_PUBLIC_API_URL}/api/products/girls-top-pajama-set`,
+          );
+          const data: Product[] = await response.json();
+          setKidsProducts(data);
+        }
+      } catch (error) {
+        console.log("Kids Product fetch error:", error);
+      }
+    };
+    fetchKids();
   }, [activeNav]);
+
   // fetch Menuu Items
   useEffect(() => {
     const fetchMenu = async () => {
@@ -869,8 +826,9 @@ export default function Index() {
   const fetchRecommendedProducts = async (products: Product[]) => {
     try {
       const handles = products.map((p) => p.handle);
+      // console.log("handles", handles);
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/products/recommendations`,
+        `${process.env.EXPO_PUBLIC_API_URL}/api/products/recommendations/home`,
         {
           method: "POST",
           headers: {
@@ -895,7 +853,7 @@ export default function Index() {
     setPullToRefresh(true);
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/products/${activeNav.toLowerCase()}`,
+        `${process.env.EXPO_PUBLIC_API_URL}/api/products/${collectionHandle}`,
       );
       const data: Product[] = await response.json();
       setAllProducts(shuffleArray(data));
@@ -953,9 +911,22 @@ export default function Index() {
         onSnapRef={snapRef}
         renderCategory={renderCategory}
         offers={OFFERS}
+        recommendedProducts={recommendedProducts}
+        interestedProducts={interestedProducts}
+        kidsProducts={kidsProducts}
+        renderProduct={renderProduct}
       />
     ),
-    [banners, categories, width, bannerHeight, offerHeight, renderCategory],
+    [
+      banners,
+      categories,
+      width,
+      bannerHeight,
+      offerHeight,
+      renderCategory,
+      recommendedProducts,
+      interestedProducts,
+    ],
   );
 
   return (
@@ -989,7 +960,7 @@ export default function Index() {
             keyExtractor={keyExtractor}
             numColumns={2}
             // renderItem={renderProduct}
-            renderItem={null}
+            renderItem={showHomeLayout ? null : renderProduct}
             ListHeaderComponent={listHeaderElement}
             columnWrapperStyle={styles.columnWrapper}
             showsVerticalScrollIndicator={false}
@@ -1003,7 +974,10 @@ export default function Index() {
               itemVisiblePercentThreshold: 40,
             }}
             ListFooterComponent={
-              <View style={{ height: 80 + insets.bottom }} />
+              <View>
+                {!showHomeLayout && <WarrningLable />}
+                <View style={{ height: 10 + insets.bottom }} />
+              </View>
             }
             contentInsetAdjustmentBehavior="never"
             refreshControl={
@@ -1024,6 +998,7 @@ export default function Index() {
           />
         </>
       )}
+
       {/* Similar products modal */}
 
       <Similarproductsmodal

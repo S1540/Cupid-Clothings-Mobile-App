@@ -1,9 +1,15 @@
 import { create } from "zustand";
 
+/**
+ * The only cart-line shape used by the app. `cartKey` is derived from the
+ * Shopify product and variant IDs, so two variants of one product stay
+ * independent everywhere the cart is stored.
+ */
 export type CartItem = {
-  id: string;
-  title: string;
+  cartKey: string;
+  productId: string;
   variantId: string;
+  title: string;
   image: string;
   price: number;
   compareAtPrice?: number;
@@ -13,11 +19,22 @@ export type CartItem = {
   size: string;
 };
 
+export const CART_STORAGE_KEY = "cartItems";
+
+export function createCartKey(productId: string, variantId: string): string {
+  return `${productId}::${variantId}`;
+}
+
+export function getCartQuantity(items: CartItem[]): number {
+  return items.reduce((total, item) => total + item.quantity, 0);
+}
+
 type CartStore = {
   cartItems: CartItem[];
   setCartItems: (items: CartItem[]) => void;
   addCartItem: (item: CartItem) => void;
-  removeCartItem: (id: string, size: string) => void;
+  setCartItemQuantity: (cartKey: string, quantity: number) => void;
+  removeCartItem: (cartKey: string) => void;
   cartCount: number;
 };
 
@@ -28,43 +45,45 @@ export const useCartStore = create<CartStore>((set, get) => ({
   setCartItems: (items) =>
     set({
       cartItems: items,
-      cartCount: items.length,
+      cartCount: getCartQuantity(items),
     }),
 
   addCartItem: (item) => {
     const existing = get().cartItems;
-    const already = existing.find(
-      (i) => i.id === item.id && i.size === item.size,
-    );
-
-    let updated = [];
-    if (already) {
-      updated = existing.map((i) =>
-        i.id === item.id && i.size === item.size
-          ? {
-              ...i,
-              quantity: i.quantity + 1,
-            }
-          : i,
-      );
-    } else {
-      updated = [item, ...existing];
-    }
+    const already = existing.find((current) => current.cartKey === item.cartKey);
+    const updated = already
+      ? existing.map((current) =>
+          current.cartKey === item.cartKey
+            ? { ...current, quantity: current.quantity + item.quantity }
+            : current,
+        )
+      : [item, ...existing];
 
     set({
       cartItems: updated,
-      cartCount: updated.length,
+      cartCount: getCartQuantity(updated),
     });
   },
 
-  removeCartItem: (id, size) => {
-    const updated = get().cartItems.filter(
-      (i) => !(i.id === id && i.size === size),
+  setCartItemQuantity: (cartKey, quantity) => {
+    const updated = get().cartItems.map((item) =>
+      item.cartKey === cartKey ? { ...item, quantity } : item,
     );
 
     set({
       cartItems: updated,
-      cartCount: updated.length,
+      cartCount: getCartQuantity(updated),
+    });
+  },
+
+  removeCartItem: (cartKey) => {
+    const updated = get().cartItems.filter(
+      (item) => item.cartKey !== cartKey,
+    );
+
+    set({
+      cartItems: updated,
+      cartCount: getCartQuantity(updated),
     });
   },
 }));

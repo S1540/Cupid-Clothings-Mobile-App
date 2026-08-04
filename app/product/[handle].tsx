@@ -7,7 +7,7 @@ import {
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   LayoutChangeEvent,
@@ -22,16 +22,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SuccessToast from "@/components/SuccessToast";
 import CircleLoader from "@/components/ui/CircleLoader";
 import { auth, db } from "@/firebaseConfig";
-import { useCartStore } from "@/store/cartStore";
+import { addCartLine, loadCart } from "@/lib/cart";
+import { createCartKey, useCartStore } from "@/store/cartStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-} from "firebase/firestore";
+import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 
 // ── Extracted components ──────────────────────────────────────────────────────
 import ProductBottomSection from "../../components/product/Productbottomsection";
@@ -98,33 +92,42 @@ export default function ProductPage() {
     Record<string, string>
   >({});
   const [offersVisible, setOffersVisible] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastValue, setToastValue] = useState("");
   const [toastPathname, setToastPathname] = useState("");
   const [toastLinkText, setToastLinkText] = useState("");
   const [loadingReviews, setLoadingReviews] = useState(false);
-  const [reviewSummary, setReviewSummary] = useState<{
-    averageRating: number;
-    reviewCount: number;
-  } | null>(null);
-
   const [reviews, setReviews] = useState<any[]>([]);
   const [sizeModalVisible, setSizeModalVisible] = useState(false);
   const [pendingAction, setPendingAction] = useState<"cart" | "buy" | null>(
     null,
   );
+  const [reviewSummary, setReviewSummary] = useState<{
+    averageRating: number;
+    reviewCount: number;
+  } | null>(null);
 
-  // FIX (both platforms): replaces the hardcoded `height: 100` footer spacer.
-  // Measured from the real CTA bar via onLayout so the last list section is
-  // never hidden behind the bar, and doesn't over/under-pad across devices.
   const [ctaBarHeight, setCtaBarHeight] = useState(0);
+  const productListRef = useRef<FlatList<Section>>(null);
   const handleCtaBarLayout = useCallback((e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
     setCtaBarHeight((prev) => (prev !== h ? h : prev));
   }, []);
 
+  const handleReadMore = useCallback(() => {
+    setDetailsExpanded(true);
+    requestAnimationFrame(() => {
+      productListRef.current?.scrollToIndex({
+        index: 2,
+        animated: true,
+        viewPosition: 0,
+      });
+    });
+  }, []);
+
   const setCartItems = useCartStore((state) => state.setCartItems);
-  const addCartItem = useCartStore((state) => state.addCartItem);
+  const cartCount = useCartStore((state) => state.cartCount);
 
   // ── Wishlist ────────────────────────────────────────────────────────────────
   const checkWishlistStatus = async () => {
@@ -201,106 +204,67 @@ export default function ProductPage() {
   // ── Load cart on focus ──────────────────────────────────────────────────────
   useFocusEffect(
     React.useCallback(() => {
-      const loadCart = async () => {
+      const hydrateCart = async () => {
         try {
-          const user = auth.currentUser;
-          if (user) {
-            const snapshot = await getDocs(
-              collection(db, "users", user.uid, "cart"),
-            );
-            const firebaseCart = snapshot.docs.map((doc) => ({
-              ...(doc.data() as any),
-            }));
-            setCartItems(firebaseCart);
-          } else {
-            const data = await AsyncStorage.getItem("cartItems");
-            if (data) {
-              setCartItems(JSON.parse(data));
-            }
-          }
+          const cart = await loadCart(auth.currentUser);
+          setCartItems(cart);
         } catch (error) {
           console.log(error);
         }
       };
-      loadCart();
+      hydrateCart();
     }, []),
   );
 
   // ── Add to cart ─────────────────────────────────────────────────────────────
   const addToCart = async (product: Product) => {
     try {
-      const selectedSize = selectedOptions["Size"];
-      const selectedVariant = product.variants.find((variant) =>
-        variant.selectedOptions.some(
-          (option) => option.name === "Size" && option.value === selectedSize,
-        ),
+      const optionName = product.options.find(
+        (o) => o.name === "Size" || o.name === "Age group",
+      )?.name;
+      const selectedSize = optionName ? selectedOptions[optionName] : undefined;
+      const selectedVariant = product.variants.find(
+        (variant) =>
+          Object.entries(selectedOptions).every(([optionName, optionValue]) =>
+            variant.selectedOptions.some(
+              (option) =>
+                option.name === optionName && option.value === optionValue,
+            ),
+          ),
+
+        // console.log(product.variants),
       );
       if (!selectedSize) {
         setPendingAction("cart");
         setSizeModalVisible(true);
         return;
       }
-
-      const user = auth.currentUser;
-      if (!user) {
-        setLoadingCart(true);
-        const existing = await AsyncStorage.getItem("cartItems");
-        let items = existing ? JSON.parse(existing) : [];
-        const existingIndex = items.findIndex(
-          (item: any) => item.id === product.id && item.size === selectedSize,
-        );
-        if (existingIndex > -1) {
-          setToastValue("Item already in cart");
-          setToastLinkText("Go to Bag");
-          setToastPathname("/Cart");
-          setShowToast(true);
-          setTimeout(() => setShowToast(false), 1500);
-        } else {
-          items.unshift({
-            id: product.id,
-            handle: product.handle,
-            title: product.title,
-            image: product.images?.[0]?.url,
-            price: product.price,
-            compareAtPrice: product.compareAtPrice,
-            discountPercent: product.discountPercent,
-            quantity: 1,
-            size: selectedSize,
-          });
-        }
-        await AsyncStorage.setItem("cartItems", JSON.stringify(items));
-        setLoadingCart(false);
-      } else {
-        const cleanId = product.id.split("/").pop();
-        await setDoc(doc(db, "users", user.uid, "cart", cleanId as string), {
-          id: product.id,
-          handle: product.handle,
-          variantId: selectedVariant?.id,
-          title: product.title,
-          image: product.images?.[0]?.url,
-          price: product.price,
-          compareAtPrice: product.compareAtPrice,
-          discountPercent: product.discountPercent,
-          quantity: 1,
-          size: selectedSize,
-          createdAt: new Date(),
-        });
+      if (!selectedVariant) {
+        setToastValue("Please select an available variant");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 1500);
+        return;
       }
 
-      addCartItem({
-        id: product.id,
+      setLoadingCart(true);
+      const cart = await addCartLine(auth.currentUser, {
+        cartKey: createCartKey(product.id, selectedVariant.id),
+        productId: product.id,
         title: product.title,
-        variantId: selectedVariant!?.id,
+        variantId: selectedVariant.id,
         image: product.images?.[0]?.url,
-        price: Number(product.price),
-        compareAtPrice: product.compareAtPrice
-          ? Number(product.compareAtPrice)
-          : undefined,
-        discountPercent: product.discountPercent || undefined,
+        price: Number(selectedVariant.price),
+        ...(product.compareAtPrice
+          ? { compareAtPrice: Number(product.compareAtPrice) }
+          : {}),
+        ...(product.discountPercent
+          ? { discountPercent: product.discountPercent }
+          : {}),
         handle: product.handle,
         quantity: 1,
         size: selectedSize,
       });
+      setCartItems(cart);
 
       setLoadingCart(false);
       setToastValue("Item added to cart");
@@ -317,63 +281,68 @@ export default function ProductPage() {
   // ── Buy now ─────────────────────────────────────────────────────────────────
   const buyNow = async (product: Product) => {
     try {
-      const selectedSize = selectedOptions["Size"];
+      const optionName = product.options.find(
+        (o) => o.name === "Size" || o.name === "Age group",
+      )?.name;
+
+      const selectedSize = optionName ? selectedOptions[optionName] : undefined;
+
+      const selectedVariant = product.variants.find((variant) =>
+        Object.entries(selectedOptions).every(([optionName, optionValue]) =>
+          variant.selectedOptions.some(
+            (option) =>
+              option.name === optionName && option.value === optionValue,
+          ),
+        ),
+      );
+
       if (!selectedSize) {
         setPendingAction("buy");
         setSizeModalVisible(true);
         return;
       }
-      setLoadingCart(true);
-      const user = auth.currentUser;
 
-      if (user) {
-        const cleanId = product.id.split("/").pop();
-        await setDoc(doc(db, "users", user.uid, "cart", cleanId as string), {
-          id: product.id,
-          handle: product.handle,
-          title: product.title,
-          image: product.images?.[0]?.url,
-          price: product.price,
-          compareAtPrice: product.compareAtPrice,
-          discountPercent: product.discountPercent,
-          quantity: 1,
-          size: selectedSize,
-          createdAt: new Date(),
-        });
-        setLoadingCart(false);
-        console.log("Saved In Firebase");
-      } else {
-        const existing = await AsyncStorage.getItem("cartItems");
-        let items = existing ? JSON.parse(existing) : [];
-        const existingIndex = items.findIndex(
-          (item: any) => item.id === product.id && item.size === selectedSize,
-        );
-        if (existingIndex > -1) {
-          console.log("Already in cart");
-        } else {
-          items.unshift({
-            id: product.id,
-            handle: product.handle,
-            title: product.title,
-            image: product.images?.[0]?.url,
-            price: product.price,
-            compareAtPrice: product.compareAtPrice,
-            discountPercent: product.discountPercent,
-            quantity: 1,
-            size: selectedSize,
-          });
-        }
-        await AsyncStorage.setItem("cartItems", JSON.stringify(items));
-        console.log("Saved In LocalStorage");
+      if (!selectedVariant) {
+        setToastValue("Please select an available variant");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 1500);
+        return;
       }
+
+      setLoadingCart(true);
+
+      const cart = await addCartLine(auth.currentUser, {
+        cartKey: createCartKey(product.id, selectedVariant.id),
+        productId: product.id,
+        title: product.title,
+        variantId: selectedVariant.id,
+        image: product.images?.[0]?.url,
+
+        // Variant price
+        price: Number(selectedVariant.price),
+
+        // Optional fields
+        ...(product.compareAtPrice
+          ? { compareAtPrice: Number(product.compareAtPrice) }
+          : {}),
+
+        ...(product.discountPercent
+          ? { discountPercent: product.discountPercent }
+          : {}),
+
+        handle: product.handle,
+        quantity: 1,
+        size: selectedSize,
+      });
+
+      setCartItems(cart);
       router.push("/Cart");
     } catch (error) {
-      console.log(error);
+      console.error("BUY NOW ERROR:", error);
     } finally {
       setLoadingCart(false);
     }
   };
-
   // ── Fetch product ───────────────────────────────────────────────────────────
   useEffect(() => {
     const fetchProduct = async () => {
@@ -410,7 +379,6 @@ export default function ProductPage() {
   // Fetch Reviewss
   useEffect(() => {
     if (!product) return;
-
     const fetchReviews = async () => {
       try {
         setLoadingReviews(true);
@@ -512,6 +480,32 @@ export default function ProductPage() {
     );
 
   // ── Section renderer ────────────────────────────────────────────────────────
+  const handleReviewSubmitted = useCallback(
+    (review: {
+      id: number;
+      rating: number;
+      title: string;
+      body: string;
+      reviewer: { name: string };
+      verified: boolean;
+      created_at: string;
+    }) => {
+      setReviews((currentReviews) => [review, ...currentReviews]);
+      setReviewSummary((currentSummary) => {
+        const currentCount = currentSummary?.reviewCount ?? 0;
+        const currentTotal =
+          (currentSummary?.averageRating ?? 0) * currentCount;
+        return {
+          averageRating: Number(
+            ((currentTotal + review.rating) / (currentCount + 1)).toFixed(1),
+          ),
+          reviewCount: currentCount + 1,
+        };
+      });
+    },
+    [],
+  );
+
   const renderSection = useCallback(
     ({ item }: { item: Section }) => {
       if (!product) return null;
@@ -536,21 +530,31 @@ export default function ProductPage() {
             setSelectedOptions={setSelectedOptions}
             offersVisible={offersVisible}
             setOffersVisible={setOffersVisible}
+            onReadMore={handleReadMore}
           />
         );
       }
 
       if (item.type === "details") {
-        return <ProductDetailsSection product={product} />;
+        return (
+          <ProductDetailsSection
+            product={product}
+            expanded={detailsExpanded}
+            onExpandedChange={setDetailsExpanded}
+          />
+        );
       }
 
       if (item.type === "bottom") {
         return (
           <ProductBottomSection
+            productId={product.id.split("/").pop() || product.id}
+            productTitle={product.title}
             viewedProducts={viewedProducts}
             exploreProducts={exploreProducts}
             reviewSummary={reviewSummary}
             reviews={reviews}
+            onReviewSubmitted={handleReviewSubmitted}
           />
         );
       }
@@ -563,6 +567,9 @@ export default function ProductPage() {
       wishlist,
       selectedOptions,
       offersVisible,
+      detailsExpanded,
+      handleReadMore,
+      handleReviewSubmitted,
       viewedProducts,
       exploreProducts,
       reviewSummary,
@@ -602,12 +609,46 @@ export default function ProductPage() {
               >
                 <Feather name="search" size={26} color="#555" />
               </Pressable>
-              <Pressable
+              {/* <Pressable
                 onPress={() => router.push("/Wishlist")}
                 style={{ padding: 6 }}
               >
-                <Ionicons name="heart-outline" size={26} />
+                <Ionicons name="heart-outline" size={26} color="#555" />
+              </Pressable> */}
+              <Pressable
+                onPress={() => router.push("/Cart")}
+                style={{ padding: 6 }}
+              >
+                <Ionicons name="cart-outline" size={26} color="#555" />
               </Pressable>
+              {cartCount > 0 && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 2,
+                    minWidth: 18,
+                    height: 18,
+                    borderRadius: 20,
+                    backgroundColor: "#F87387",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingHorizontal: 4,
+                    borderWidth: 1.5,
+                    borderColor: "#fff",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: 9,
+                      fontWeight: "800",
+                    }}
+                  >
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </Text>
+                </View>
+              )}
             </View>
           ),
         }}
@@ -627,11 +668,17 @@ export default function ProductPage() {
         </View>
       ) : (
         <FlatList
+          ref={productListRef}
           data={SECTIONS}
           style={{ backgroundColor: "#fff" }}
           keyExtractor={(item) => item.type}
           showsVerticalScrollIndicator={false}
           renderItem={renderSection}
+          onScrollToIndexFailed={() => {
+            requestAnimationFrame(() => {
+              productListRef.current?.scrollToIndex({ index: 2, animated: true });
+            });
+          }}
           ListFooterComponent={<View style={{ height: ctaBarHeight }} />}
         />
       )}
@@ -689,77 +736,91 @@ export default function ProductPage() {
             </Pressable>
           </View>
 
-          {/* Size chips */}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-            {product?.options
-              ?.find((o) => o.name === "Size")
-              ?.values?.map((value) => {
-                const available = isVariantAvailable("Size", value);
-                const selected = selectedOptions["Size"] === value;
-                return (
-                  <Pressable
-                    key={value}
-                    onPress={() => {
-                      if (!available) return;
-                      setSelectedOptions((prev) => ({ ...prev, Size: value }));
-                    }}
-                    style={{
-                      minWidth: 52,
-                      height: 48,
-                      borderRadius: 10,
-                      paddingHorizontal: 12,
-                      borderWidth: selected ? 2 : 1,
-                      borderColor: selected
-                        ? "#ff5c84"
-                        : available
-                          ? "#ddd"
-                          : "#f0f0f0",
-                      borderStyle: available ? "solid" : "dashed",
-                      backgroundColor: selected
-                        ? "#fff5f7"
-                        : available
-                          ? "#fff"
-                          : "#fafafa",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      opacity: available ? 1 : 0.5,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "700",
-                        color: selected
-                          ? "#ff5c84"
-                          : available
-                            ? "#333"
-                            : "#bbb",
-                      }}
-                    >
-                      {value}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-          </View>
+          {/* Size / Age Group Chips */}
+          {(() => {
+            const optionName = product?.options?.[0]?.name;
+
+            return (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                {product?.options
+                  ?.find((o) => o.name === optionName)
+                  ?.values?.map((value) => {
+                    const available = isVariantAvailable(optionName!, value);
+                    const selected = selectedOptions[optionName!] === value;
+
+                    return (
+                      <Pressable
+                        key={value}
+                        onPress={() => {
+                          if (!available) return;
+
+                          setSelectedOptions((prev) => ({
+                            ...prev,
+                            [optionName!]: value,
+                          }));
+                        }}
+                        style={{
+                          minWidth: 52,
+                          height: 48,
+                          borderRadius: 10,
+                          paddingHorizontal: 12,
+                          borderWidth: selected ? 2 : 1,
+                          borderColor: selected
+                            ? "#ff5c84"
+                            : available
+                              ? "#ddd"
+                              : "#f0f0f0",
+                          borderStyle: available ? "solid" : "dashed",
+                          backgroundColor: selected
+                            ? "#fff5f7"
+                            : available
+                              ? "#fff"
+                              : "#fafafa",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          opacity: available ? 1 : 0.5,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "700",
+                            color: selected
+                              ? "#ff5c84"
+                              : available
+                                ? "#333"
+                                : "#bbb",
+                          }}
+                        >
+                          {value}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+              </View>
+            );
+          })()}
 
           {/* Size guide link */}
-          <Pressable
+          {/* <Pressable
             style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
           >
             <Feather name="info" size={13} color="#ff5c84" />
             <Text style={{ fontSize: 13, color: "#ff5c84", fontWeight: "600" }}>
               Size Guide
             </Text>
-          </Pressable>
+          </Pressable> */}
 
           <View style={{ height: 0.5, backgroundColor: "#f0f0f0" }} />
 
           {/* Confirm */}
           <Pressable
-            disabled={!selectedOptions["Size"]}
+            disabled={!selectedOptions[product?.options?.[0]?.name ?? ""]}
             onPress={async () => {
-              const selectedSize = selectedOptions["Size"];
+              const optionName = product?.options?.[0]?.name;
+              const selectedSize = optionName
+                ? selectedOptions[optionName]
+                : undefined;
               if (!selectedSize) {
                 setToastValue("Please select a size");
                 setShowToast(true);
@@ -774,7 +835,11 @@ export default function ProductPage() {
               setPendingAction(null);
             }}
             style={{
-              backgroundColor: selectedOptions["Size"] ? "#ff5c84" : "#ddd",
+              backgroundColor: selectedOptions[
+                product?.options?.[0]?.name ?? ""
+              ]
+                ? "#ff5c84"
+                : "#ddd",
               borderRadius: 6,
               paddingVertical: 16,
               alignItems: "center",

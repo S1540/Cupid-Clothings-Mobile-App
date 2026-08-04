@@ -1,0 +1,13 @@
+﻿diff --git a/app/Cart.tsx b/app/Cart.tsx
+index 2da73fb..ec8618e 100644
+--- a/app/Cart.tsx
++++ b/app/Cart.tsx
+@@ -1,7 +1,7 @@
+ import CartSkeleton from "@/components/CartSkeleton";
+ import LoginModel from "@/components/modal/LoginModel";
+ import SignUpModel from "@/components/modal/SignUpModel";
+-import { auth, db } from "@/firebaseConfig";
++import { auth } from "@/firebaseConfig";
+ import {
+   loadCart,
+   removeCartLine,

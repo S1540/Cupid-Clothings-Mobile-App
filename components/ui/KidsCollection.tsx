@@ -198,7 +198,9 @@ export default function KidsCollections({
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => router.push(`/category/${item.handle}`)}
+              onPress={() => {
+                router.push(`/product/${item.handle}`);
+              }}
               style={[styles.card, { width: cardWidth, marginRight: 0 }]}
             >
               <Image

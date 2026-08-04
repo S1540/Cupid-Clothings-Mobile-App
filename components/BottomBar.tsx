@@ -1,12 +1,158 @@
-import { AntDesign, Entypo, Ionicons } from "@expo/vector-icons";
+import { Entypo, Ionicons } from "@expo/vector-icons";
 import { Href, usePathname, useRouter } from "expo-router";
-import React from "react";
-import { Pressable, Text, View } from "react-native";
+import React, { useEffect } from "react";
+import { Platform, Pressable, Text, View } from "react-native";
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useCartStore } from "@/store/cartStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 
-const ACTIVE = "#81a6f0";
+const ACTIVE = "#81A6F0";
 const INACTIVE = "#8A8A8A";
+const ACTIVE_BG = "#EEF3FE";
+
+type TabItemProps = {
+  route: Href;
+  label: string;
+  icon: (color: string) => React.ReactNode;
+  active: boolean;
+  onPress: () => void;
+  badge?: number;
+};
+
+function TabItem({ label, icon, active, onPress, badge }: TabItemProps) {
+  const pressScale = useSharedValue(1);
+  const activeProgress = useSharedValue(active ? 1 : 0);
+
+  useEffect(() => {
+    activeProgress.value = withTiming(active ? 1 : 0, { duration: 220 });
+  }, [active]);
+
+  const containerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
+
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: activeProgress.value,
+    transform: [{ scale: 0.85 + activeProgress.value * 0.15 }],
+    backgroundColor: "Transparent",
+  }));
+
+  const inactiveIconStyle = useAnimatedStyle(() => ({
+    opacity: 1 - activeProgress.value,
+  }));
+
+  const activeIconStyle = useAnimatedStyle(() => ({
+    opacity: activeProgress.value,
+    transform: [
+      { scale: 0.7 + activeProgress.value * 0.3 },
+      { translateY: (1 - activeProgress.value) * 4 },
+    ],
+    position: "absolute",
+  }));
+
+  const labelStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(activeProgress.value, [0, 1], [INACTIVE, ACTIVE]),
+    fontWeight: active ? "700" : "500",
+  }));
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => {
+        pressScale.value = withSpring(0.88, { damping: 12, stiffness: 250 });
+      }}
+      onPressOut={() => {
+        pressScale.value = withSpring(1, { damping: 10, stiffness: 200 });
+      }}
+      android_ripple={{ color: "#f3f3f3", borderless: true }}
+      hitSlop={8}
+      style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+    >
+      <Animated.View
+        style={[
+          {
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          containerStyle,
+        ]}
+      >
+        <Animated.View
+          style={[
+            {
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 14,
+              paddingVertical: 22,
+              borderRadius: 16,
+            },
+            pillStyle,
+          ]}
+        />
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <View>
+            <Animated.View style={inactiveIconStyle}>
+              {icon(INACTIVE)}
+            </Animated.View>
+            <Animated.View style={activeIconStyle}>
+              {icon(ACTIVE)}
+            </Animated.View>
+
+            {!!badge && badge > 0 && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: -4,
+                  right: -8,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 10,
+                  backgroundColor: ACTIVE,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 3,
+                  borderWidth: 1.5,
+                  borderColor: "#fff",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 8,
+                    fontWeight: "800",
+                  }}
+                >
+                  {badge > 99 ? "99+" : badge}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <Animated.Text
+            numberOfLines={1}
+            style={[{ marginTop: 3, fontSize: 11 }, labelStyle]}
+          >
+            {label}
+          </Animated.Text>
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 export default function BottomBar() {
   const router = useRouter();
@@ -14,36 +160,27 @@ export default function BottomBar() {
   const cartCount = useCartStore((state) => state.cartCount);
   const insets = useSafeAreaInsets();
 
-  const TabItem = ({ route, icon }: { route: Href; icon: React.ReactNode }) => {
-    const active = pathname === route;
+  const barHeight = 58 + Math.max(insets.bottom, 10);
 
-    return (
-      <Pressable
-        onPress={() => router.push(route)}
-        android_ripple={{ color: "#f3f3f3" }}
-        style={({ pressed }) => ({
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: pressed ? 0.7 : 1,
-          transform: [{ scale: pressed ? 0.92 : 1 }],
-        })}
-      >
-        <View
-          style={{
-            width: 50,
-            height: 50,
-            borderRadius: 25,
-            backgroundColor: active ? "#B3C9F543" : "transparent",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {icon}
-        </View>
-      </Pressable>
-    );
-  };
+  const isActive = (route: Href) => pathname === route;
+  const homeActive = isActive("/");
+
+  // animated dim/scale for the Home logo — no native SVG/color-matrix dependency,
+  // pure opacity + scale so it can never throw a "view manager" error
+  const homeProgress = useSharedValue(homeActive ? 1 : 0);
+  useEffect(() => {
+    homeProgress.value = withTiming(homeActive ? 1 : 0, { duration: 220 });
+  }, [homeActive]);
+
+  const homeLogoStyle = useAnimatedStyle(() => ({
+    opacity: 0.5 + homeProgress.value * 0.5,
+    transform: [{ scale: 0.92 + homeProgress.value * 0.08 }],
+  }));
+
+  const homeLabelStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(homeProgress.value, [0, 1], [INACTIVE, ACTIVE]),
+    fontWeight: homeActive ? "700" : "500",
+  }));
 
   return (
     <View
@@ -54,140 +191,89 @@ export default function BottomBar() {
         right: 0,
         backgroundColor: "#fff",
         borderTopWidth: 1,
-        borderTopColor: "#EFEFEF",
+        borderTopColor: "#F0F0F0",
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-around",
-        height: 60 + Math.max(insets.bottom, 12),
-        paddingBottom: Math.max(insets.bottom, 12),
-        elevation: 30,
+        height: barHeight,
+        paddingBottom: Math.max(insets.bottom, 10),
+        paddingTop: 6,
         zIndex: 9999,
+        ...Platform.select({
+          ios: {
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.06,
+            shadowRadius: 6,
+          },
+          android: {
+            elevation: 20,
+          },
+        }),
       }}
     >
-      {/* Home */}
-      <TabItem
-        route="/"
-        icon={
-          <AntDesign
-            name="home"
-            size={30}
-            color={pathname === "/" ? ACTIVE : INACTIVE}
-          />
-        }
-      />
+      {/* Home - logo dims/brightens with opacity + scale, no native deps */}
+      <Pressable
+        onPress={() => router.push("/")}
+        android_ripple={{ color: "#f3f3f3", borderless: true }}
+        hitSlop={8}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+      >
+        <View
+          style={{
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: 14,
+            paddingVertical: 4,
+          }}
+        >
+          <Animated.View style={homeLogoStyle}>
+            <Image
+              source={require("../assets/images/notification-icon.png")}
+              style={{ width: 30, height: 30 }}
+              contentFit="contain"
+            />
+          </Animated.View>
+          <Animated.Text
+            numberOfLines={1}
+            style={[{ marginTop: 3, fontSize: 11 }, homeLabelStyle]}
+          >
+            Home
+          </Animated.Text>
+        </View>
+      </Pressable>
 
-      {/* Account */}
+      {/* Account - animated */}
       <TabItem
         route="/Account"
-        icon={
-          <Ionicons
-            name="person-outline"
-            size={30}
-            color={pathname === "/Account" ? ACTIVE : INACTIVE}
-          />
-        }
+        label="Account"
+        active={isActive("/Account")}
+        onPress={() => router.push("/Account")}
+        icon={(color) => (
+          <Ionicons name="person-outline" size={24} color={color} />
+        )}
       />
 
-      {/* Studio */}
-      <Pressable
-        onPress={() => router.push("/Studio")}
-        android_ripple={{ color: "#f3f3f3" }}
-        style={({ pressed }) => ({
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: pressed ? 0.7 : 1,
-          transform: [{ scale: pressed ? 0.9 : 1 }],
-        })}
-      >
-        <View
-          style={{
-            width: 62,
-            height: 62,
-            borderRadius: 31,
-            backgroundColor: ACTIVE,
-            alignItems: "center",
-            justifyContent: "center",
-            marginTop: -28,
-            borderWidth: 4,
-            borderColor: "#fff",
-            elevation: 15,
-          }}
-        >
-          <Entypo name="video" size={30} color="#fff" />
-        </View>
-      </Pressable>
-
-      {/* Wallet */}
+      {/* Studio - animated */}
       <TabItem
-        route="/Wallet"
-        icon={
-          <Ionicons
-            name="wallet-outline"
-            size={30}
-            color={pathname === "/Wallet" ? ACTIVE : INACTIVE}
-          />
-        }
+        route="/Studio"
+        label="Studio"
+        active={isActive("/Studio")}
+        onPress={() => router.push("/Studio")}
+        icon={(color) => <Entypo name="camera" size={24} color={color} />}
       />
 
-      {/* Cart */}
-      <Pressable
+      {/* Cart - animated, with badge */}
+      <TabItem
+        route="/Cart"
+        label="Cart"
+        active={isActive("/Cart")}
         onPress={() => router.push("/Cart")}
-        android_ripple={{ color: "#f3f3f3" }}
-        style={({ pressed }) => ({
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: pressed ? 0.7 : 1,
-          transform: [{ scale: pressed ? 0.92 : 1 }],
-        })}
-      >
-        <View
-          style={{
-            width: 50,
-            height: 50,
-            borderRadius: 25,
-            backgroundColor: pathname === "/Cart" ? "#FFF0F4" : "transparent",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons
-            name="cart-outline"
-            size={30}
-            color={pathname === "/Cart" ? ACTIVE : INACTIVE}
-          />
-
-          {cartCount > 0 && (
-            <View
-              style={{
-                position: "absolute",
-                top: 4,
-                right: 2,
-                minWidth: 18,
-                height: 18,
-                borderRadius: 20,
-                backgroundColor: ACTIVE,
-                alignItems: "center",
-                justifyContent: "center",
-                paddingHorizontal: 4,
-                borderWidth: 1.5,
-                borderColor: "#fff",
-              }}
-            >
-              <Text
-                style={{
-                  color: "#fff",
-                  fontSize: 9,
-                  fontWeight: "800",
-                }}
-              >
-                {cartCount > 99 ? "99+" : cartCount}
-              </Text>
-            </View>
-          )}
-        </View>
-      </Pressable>
+        badge={cartCount}
+        icon={(color) => (
+          <Ionicons name="cart-outline" size={26} color={color} />
+        )}
+      />
     </View>
   );
 }

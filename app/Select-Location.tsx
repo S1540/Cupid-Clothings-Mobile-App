@@ -297,10 +297,10 @@ export default function SelectLocation() {
                 <View
                   style={{
                     height: 58,
-                    borderRadius: 6,
+                    borderRadius: 4,
                     borderWidth: 1.5,
                     borderColor: "#F87387",
-                    backgroundColor: "#fff",
+                    backgroundColor: "#F87387",
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
@@ -312,18 +312,18 @@ export default function SelectLocation() {
                       width: 34,
                       height: 34,
                       borderRadius: 99,
-                      backgroundColor: "#fff0f4",
+                      backgroundColor: "#F87387",
                       alignItems: "center",
                       justifyContent: "center",
                       marginRight: 10,
                     }}
                   >
-                    <Feather name="navigation" size={18} color="#ff5c84" />
+                    <Feather name="navigation" size={18} color="#fff" />
                   </View>
 
                   <Text
                     style={{
-                      color: "#F87387",
+                      color: "#fff",
                       fontSize: 15,
                       fontWeight: "800",
                     }}
@@ -338,19 +338,21 @@ export default function SelectLocation() {
                 <View
                   style={{
                     height: 58,
-                    borderRadius: 6,
-                    backgroundColor: "#F87387",
+                    borderRadius: 4,
+                    borderColor: "#F87387",
+                    borderWidth: 1,
+                    backgroundColor: "#fff",
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "center",
-                    shadowColor: "#ff5c84",
+                    shadowColor: "#ff4f81",
                     shadowOffset: {
                       width: 0,
-                      height: 10,
+                      height: 4,
                     },
                     shadowOpacity: 0.24,
                     shadowRadius: 10,
-                    elevation: 10,
+                    elevation: 2,
                   }}
                 >
                   <View
@@ -358,7 +360,7 @@ export default function SelectLocation() {
                       width: 34,
                       height: 34,
                       borderRadius: 99,
-                      backgroundColor: "rgba(255,255,255,0.16)",
+                      backgroundColor: "#F87387",
                       alignItems: "center",
                       justifyContent: "center",
                       marginRight: 10,
@@ -369,7 +371,7 @@ export default function SelectLocation() {
 
                   <Text
                     style={{
-                      color: "#fff",
+                      color: "#F87387",
                       fontSize: 15,
                       fontWeight: "800",
                     }}

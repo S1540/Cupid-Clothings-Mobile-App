@@ -1,4 +1,5 @@
 // app/category/[handle].tsx
+import Similarproductsmodal from "@/components/modal/Similarproductsmodal";
 import HomeSkeleton from "@/components/ui/HomeSkeleton";
 import ProductCard from "@/components/ui/ProductCrad";
 import { useCartStore } from "@/store/cartStore";
@@ -367,6 +368,8 @@ const Handle = () => {
   const [wishlist, setWishlist] = useState(false);
   const [reviewSummery, setReviewSummery] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [similarModal, setSimilarModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const params = useLocalSearchParams<{ handle?: string | string[] }>();
   const router = useRouter();
@@ -578,7 +581,11 @@ const Handle = () => {
           renderItem={({ item }) => (
             <ProductCard
               item={item}
-              onPress={() => router.push(`/product/${item.handle}`)}
+              onPress={() => {
+                setSelectedProduct(item);
+                setSimilarModal(true);
+              }}
+
               productImageHeight={productImageHeight}
               reviewSummary={reviewSummery}
             />
@@ -596,9 +603,15 @@ const Handle = () => {
               onSelect={handleSelectCategory}
             />
           }
+
           ListFooterComponent={<View style={{ height: 16 + insets.bottom }} />}
         />
       )}
+      <Similarproductsmodal
+        visible={similarModal}
+        product={selectedProduct}
+        onClose={() => setSimilarModal(false)}
+      />
     </>
   );
 };

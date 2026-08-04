@@ -47,45 +47,22 @@ interface Props {
   onViewAll?: () => void;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// RECENTLY VIEWED CARD
-// ─────────────────────────────────────────────────────────────────────────
-const RecentlyViewedCard = React.memo(
-  ({
-    viewedProduct,
-  }: {
-    viewedProduct: NonNullable<Props["viewedProduct"]>;
-  }) => (
-    <View style={styles.viewedCard}>
-      <Image
-        source={{ uri: viewedProduct.image }}
-        style={styles.viewedImage}
-        contentFit="cover"
-        transition={150}
-      />
-      <View style={styles.viewedTextWrap}>
-        <Text style={styles.viewedPrefix}>Based on your interest in</Text>
-        <Text style={styles.viewedTitle} numberOfLines={1}>
-          {viewedProduct.title}
-        </Text>
-        <Text style={styles.viewedSuffix}>
-          {viewedProduct.subtitle ?? "You viewed this recently"}
-        </Text>
-      </View>
-    </View>
-  ),
-);
+// ─── App theme — only colors already used across the app ──────────────────
+const PRIMARY = "#F0417D";
+const BG = "#fff";
+const SOFT_BG = "#FFF7F8";
+const BORDER = "#F3F3F3";
+const LIGHT_TEXT = "#8A8A8A";
+const INK = "#1A1A1A";
+const DISCOUNT_GREEN = "#22C55E";
 
-// ─────────────────────────────────────────────────────────────────────────
-// CENTER DIVIDER WITH HEART
-// ─────────────────────────────────────────────────────────────────────────
 const HeartDivider = React.memo(() => (
   <View style={styles.dividerRow}>
     <View style={styles.dividerLine} />
     <MaterialCommunityIcons
       name="heart"
       size={12}
-      color="#F0417D"
+      color={PRIMARY}
       style={{ marginHorizontal: 8 }}
     />
     <View style={styles.dividerLine} />
@@ -188,7 +165,7 @@ const ProductCard = React.memo(
               hitSlop={8}
               style={styles.wishlistBtn}
             >
-              <Feather name="heart" size={15} color="#1c1c1c" />
+              <Feather name="heart" size={14} color={INK} />
             </Pressable>
 
             {/* Badge */}
@@ -197,13 +174,11 @@ const ProductCard = React.memo(
                 <Text style={styles.badgeText}>{item.badge}</Text>
               </View>
             )}
-          </View>
 
-          <View style={styles.infoWrap}>
-            {/* Rating row */}
+            {/* Rating pill — frosted glass look */}
             {!!item.rating && (
-              <View style={styles.ratingRow}>
-                <Feather name="star" size={11} color="#F0417D" />
+              <View style={styles.ratingPill}>
+                <Feather name="star" size={10} color="#F59E0B" />
                 <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
                 {!!item.reviewCount && (
                   <Text style={styles.reviewText}>
@@ -212,9 +187,11 @@ const ProductCard = React.memo(
                 )}
               </View>
             )}
+          </View>
 
+          <View style={styles.infoWrap}>
             {/* Title */}
-            <Text style={styles.productTitle} numberOfLines={1}>
+            <Text numberOfLines={2} style={styles.productTitle}>
               {item.title}
             </Text>
 
@@ -224,22 +201,31 @@ const ProductCard = React.memo(
               {!!item.compareAtPrice && (
                 <Text style={styles.comparePrice}>₹{item.compareAtPrice}</Text>
               )}
+              {!!discountPercent && (
+                <View style={styles.discountPill}>
+                  <Text style={styles.discountPillText}>
+                    {discountPercent}% OFF
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </Pressable>
 
         {/* Add to Bag button */}
-        <Animated.View style={bagAnimatedStyle}>
-          <Pressable
-            onPress={() => onAddToBag(item)}
-            onPressIn={handleBagPressIn}
-            onPressOut={handleBagPressOut}
-            style={styles.addToBagBtn}
-          >
-            <Feather name="shopping-bag" size={13} color="#F0417D" />
-            <Text style={styles.addToBagText}>Add to Bag</Text>
-          </Pressable>
-        </Animated.View>
+        {/* <View style={styles.addToBagWrap}>
+          <Animated.View style={bagAnimatedStyle}>
+            <Pressable
+              onPress={() => onAddToBag(item)}
+              onPressIn={handleBagPressIn}
+              onPressOut={handleBagPressOut}
+              style={styles.addToBagBtn}
+            >
+              <Feather name="shopping-bag" size={13} color={PRIMARY} />
+              <Text style={styles.addToBagText}>Add to Bag</Text>
+            </Pressable>
+          </Animated.View>
+        </View> */}
       </Animated.View>
     );
   },
@@ -261,7 +247,7 @@ function RecommendedProductsSection({
   const [recommendations, setRecommendations] = useState<ProductItem[]>([]);
   const { width } = useWindowDimensions();
   const HORIZONTAL_PADDING = 16;
-  const GAP = 12;
+  const GAP = 6;
   const cardWidth = (width - HORIZONTAL_PADDING * 2 - GAP) / 2;
   const keyExtractor = useCallback((item: ProductItem) => item.id, []);
 
@@ -283,7 +269,7 @@ function RecommendedProductsSection({
       setRecommendations(products);
     }, 1000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [products]);
 
   return (
     <View style={styles.container}>
@@ -297,7 +283,7 @@ function RecommendedProductsSection({
             <MaterialCommunityIcons
               name="heart-outline"
               size={16}
-              color="#F0417D"
+              color={PRIMARY}
               style={{ marginLeft: 4 }}
             />
           </View>
@@ -307,17 +293,17 @@ function RecommendedProductsSection({
         {onViewAll && (
           <Pressable onPress={onViewAll} style={styles.viewAllBtn}>
             <Text style={styles.viewAllText}>View All</Text>
-            <Feather name="chevron-right" size={16} color="#7C3FD6" />
+            <Feather name="chevron-right" size={16} color={PRIMARY} />
           </Pressable>
         )}
       </View>
 
       {/* Recently viewed card */}
-      {viewedProduct && (
+      {/* {viewedProduct && (
         <View style={styles.viewedWrap}>
           <RecentlyViewedCard viewedProduct={viewedProduct} />
         </View>
-      )}
+      )} */}
 
       {/* You may also love + divider */}
       <View style={styles.sectionHeadingWrap}>
@@ -368,12 +354,12 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 19,
     fontWeight: "800",
-    color: "#1c1c1c",
+    color: INK,
     letterSpacing: 0.2,
   },
   subHeading: {
     fontSize: 12.5,
-    color: "#888",
+    color: LIGHT_TEXT,
     marginTop: 2,
   },
   viewAllBtn: {
@@ -385,7 +371,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 13.5,
     fontWeight: "700",
-    color: "#7C3FD6",
+    color: PRIMARY,
   },
 
   // Recently viewed card
@@ -396,11 +382,11 @@ const styles = StyleSheet.create({
   viewedCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: "#FDEDF3",
+    gap: 8,
+    backgroundColor: SOFT_BG,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#F9D3E2",
+    borderColor: BORDER,
     padding: 10,
   },
   viewedImage: {
@@ -414,17 +400,17 @@ const styles = StyleSheet.create({
   },
   viewedPrefix: {
     fontSize: 11.5,
-    color: "#8a7a80",
+    color: LIGHT_TEXT,
   },
   viewedTitle: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#1c1c1c",
+    color: INK,
     marginTop: 1,
   },
   viewedSuffix: {
     fontSize: 11.5,
-    color: "#8a7a80",
+    color: LIGHT_TEXT,
     marginTop: 1,
   },
 
@@ -437,7 +423,7 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#1c1c1c",
+    color: INK,
     letterSpacing: 0.6,
   },
   dividerRow: {
@@ -448,22 +434,32 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#F6C9DB",
+    backgroundColor: "#F9D3E2",
   },
 
-  // Product card
+  // Product card — premium framed look: soft border, tiny shadow,
+  // padded so the image reads as inset rather than edge-to-edge.
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
+    backgroundColor: BG,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: BORDER,
     overflow: "hidden",
+    padding: 4,
+    marginBottom: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 0.2,
   },
   imageWrap: {
     width: "100%",
-    aspectRatio: 0.85,
+    aspectRatio: 0.75,
     overflow: "hidden",
     position: "relative",
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
+    backgroundColor: SOFT_BG,
+    borderRadius: 4,
   },
   image: {
     width: "100%",
@@ -473,27 +469,28 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     right: 8,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#fff",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   badge: {
     position: "absolute",
-    bottom: 8,
-    left: 0,
-    backgroundColor: "#F0417D",
-    paddingHorizontal: 10,
+    top: 8,
+    left: 8,
+    backgroundColor: PRIMARY,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
+    borderRadius: 8,
   },
   badgeText: {
     fontSize: 9.5,
@@ -501,59 +498,94 @@ const styles = StyleSheet.create({
     color: "#fff",
     letterSpacing: 0.4,
   },
-  infoWrap: {
-    paddingTop: 8,
-  },
-  ratingRow: {
+
+  // Rating pill — frosted white, bottom-left over the image.
+  ratingPill: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.88)",
+    borderWidth: 0.5,
+    borderColor: "rgba(0,0,0,0.04)",
   },
   ratingText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: "700",
-    color: "#1c1c1c",
+    color: INK,
   },
   reviewText: {
-    fontSize: 11,
-    color: "#999",
+    fontSize: 10,
+    color: LIGHT_TEXT,
+  },
+
+  infoWrap: {
+    paddingTop: 10,
+    paddingHorizontal: 2,
+    gap: 5,
   },
   productTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1c1c1c",
-    marginTop: 3,
+    fontSize: 12,
+    fontWeight: "500",
+    color: INK,
+    lineHeight: 18,
+    letterSpacing: -0.1,
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 3,
+    flexWrap: "wrap",
+    gap: 7,
+    marginTop: 1,
   },
   price: {
-    fontSize: 14.5,
+    fontSize: 16,
     fontWeight: "800",
-    color: "#F0417D",
+    color: INK,
+    letterSpacing: -0.2,
   },
   comparePrice: {
     fontSize: 12,
-    color: "#aaa",
+    color: LIGHT_TEXT,
     textDecorationLine: "line-through",
+  },
+  discountPill: {
+    backgroundColor: "rgba(34,197,94,0.12)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  discountPillText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: DISCOUNT_GREEN,
+    letterSpacing: 0.2,
+  },
+
+  addToBagWrap: {
+    marginTop: 10,
+    paddingHorizontal: 2,
+    paddingBottom: 2,
   },
   addToBagBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    marginTop: 10,
-    borderWidth: 1.5,
-    borderColor: "#F0417D",
-    borderRadius: 20,
-    paddingVertical: 8,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.3,
+    borderColor: PRIMARY,
+    backgroundColor: BG,
   },
   addToBagText: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: "700",
-    color: "#F0417D",
+    color: PRIMARY,
   },
 });

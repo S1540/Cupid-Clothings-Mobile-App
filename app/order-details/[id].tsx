@@ -8,6 +8,7 @@ import {
   Pressable,
   Image,
   Animated,
+  Easing,
   TouchableOpacity,
   Alert,
   Clipboard,
@@ -35,6 +36,12 @@ if (
 // ----------------------------------- Colors -------------------------------------------------
 const C = {
   brand: "#F87387",
+  // Semantic alias — used ONLY for genuinely "happening right now" states
+  // (out-for-delivery banner, the active timeline step, the newest
+  // tracking-history entry, and the one primary action button). Everything
+  // else in this screen is neutral so the brand color still reads as
+  // meaningful when it does show up.
+  active: "#F87387",
   softPink: "#FFF4F6",
   lightBorder: "#F8D7DE",
   bg: "#FFF7F8",
@@ -203,10 +210,11 @@ const StatusBanner = memo(({ order }: { order: Order }) => {
     bg = C.successBg;
     border = C.successBorder;
   } else if (s === "OUT FOR DELIVERY") {
+    // The one true "happening right now" banner — kept on-brand.
     title = "Out for Delivery Today!";
     sub = "Your order is on its way. Please be available to receive it.";
     icon = "bicycle-outline";
-    iconColor = C.brand;
+    iconColor = C.active;
     bg = C.softPink;
     border = C.lightBorder;
   } else if (s === "PICKUP RESCHEDULED") {
@@ -273,6 +281,52 @@ const ProductCard = memo(({ product }: { product: OrderProduct }) => (
   </View>
 ));
 
+// ─── Live "active step" dot — pulsing ring so the current status reads as
+// something happening right now, not just a static marker. ──────────────
+const ActiveDot = memo(() => {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const scale = pulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 2.4],
+  });
+  const opacity = pulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.45, 0],
+  });
+
+  return (
+    <View style={styles.dotActiveWrap}>
+      <Animated.View
+        style={[styles.dotPulseRing, { transform: [{ scale }], opacity }]}
+      />
+      <View style={styles.dotActive}>
+        <View style={styles.dotPulse} />
+      </View>
+    </View>
+  );
+});
+
 // ─── Timeline ------------------------------───────
 const Timeline = memo(({ trackingStatus }: { trackingStatus?: string }) => {
   const currentIdx = getStepIndex(trackingStatus);
@@ -293,7 +347,7 @@ const Timeline = memo(({ trackingStatus }: { trackingStatus?: string }) => {
               <View
                 style={[
                   styles.timelineLine,
-                  { backgroundColor: isDone ? "#F9C9D2" : "#EBEBEB" },
+                  { backgroundColor: isDone ? `${C.success}` : "#EBEBEB" },
                 ]}
               />
             )}
@@ -305,9 +359,7 @@ const Timeline = memo(({ trackingStatus }: { trackingStatus?: string }) => {
                   <Ionicons name="checkmark" size={11} color="#fff" />
                 </View>
               ) : isActive ? (
-                <View style={styles.dotActive}>
-                  <View style={styles.dotPulse} />
-                </View>
+                <ActiveDot />
               ) : (
                 <View style={styles.dotFuture} />
               )}
@@ -321,7 +373,7 @@ const Timeline = memo(({ trackingStatus }: { trackingStatus?: string }) => {
                 style={[
                   styles.timelineLabel,
                   isDone && { color: C.primary, fontWeight: "500" },
-                  isActive && { color: C.brand, fontWeight: "700" },
+                  isActive && { color: C.active, fontWeight: "700" },
                   !isDone && !isActive && { color: C.muted },
                 ]}
               >
@@ -399,7 +451,7 @@ const TrackingHistory = memo(
             <Ionicons
               name={expanded ? "chevron-up" : "chevron-down"}
               size={13}
-              color={C.brand}
+              color={C.secondary}
             />
           </TouchableOpacity>
         )}
@@ -617,7 +669,7 @@ export default function OrderTrackingScreen() {
                 <Ionicons
                   name="git-branch-outline"
                   size={14}
-                  color={C.brand}
+                  color={C.secondary}
                   style={{ marginRight: 6 }}
                 />
               }
@@ -647,7 +699,7 @@ export default function OrderTrackingScreen() {
                 <Feather
                   name="package"
                   size={13}
-                  color={C.brand}
+                  color={C.secondary}
                   style={{ marginRight: 6 }}
                 />
               }
@@ -669,7 +721,7 @@ export default function OrderTrackingScreen() {
                         onPress={copyAWB}
                         activeOpacity={0.7}
                       >
-                        <Feather name="copy" size={11} color={C.brand} />
+                        <Feather name="copy" size={11} color={C.secondary} />
                         <Text style={styles.copyText}>Copy</Text>
                       </TouchableOpacity>
                     )}
@@ -698,7 +750,7 @@ export default function OrderTrackingScreen() {
                   <Ionicons
                     name="pulse-outline"
                     size={14}
-                    color={C.brand}
+                    color={C.secondary}
                     style={{ marginRight: 6 }}
                   />
                 }
@@ -716,7 +768,7 @@ export default function OrderTrackingScreen() {
                 <Ionicons
                   name="location-outline"
                   size={14}
-                  color={C.brand}
+                  color={C.secondary}
                   style={{ marginRight: 6 }}
                 />
               }
@@ -724,7 +776,11 @@ export default function OrderTrackingScreen() {
               {addr?.name || addr?.address1 ? (
                 <View style={styles.addressRow}>
                   <View style={styles.addrIconCircle}>
-                    <Ionicons name="home-outline" size={15} color={C.brand} />
+                    <Ionicons
+                      name="home-outline"
+                      size={15}
+                      color={C.secondary}
+                    />
                   </View>
                   <View style={{ flex: 1 }}>
                     {addr?.name && (
@@ -843,15 +899,16 @@ const styles = StyleSheet.create({
   orderDateText: { fontSize: 12, color: C.muted, marginTop: 3 },
   etaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
   etaText: { fontSize: 12, color: C.success, fontWeight: "600" },
+  // Neutral now — a plain, confident price tag instead of a pink badge.
   totalPill: {
-    backgroundColor: C.softPink,
+    backgroundColor: C.softGray,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: C.lightBorder,
+    borderColor: C.border,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  totalPillText: { fontSize: 14, fontWeight: "700", color: C.brand },
+  totalPillText: { fontSize: 14, fontWeight: "700", color: C.primary },
 
   // Product
   productRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
@@ -904,18 +961,19 @@ const styles = StyleSheet.create({
   },
   metaValue: { fontSize: 13.5, fontWeight: "600", color: C.primary },
   awbRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  // Neutral utility button now, instead of a pink chip.
   copyBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: C.softPink,
+    backgroundColor: C.softGray,
     borderRadius: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: C.lightBorder,
+    borderColor: C.border,
   },
-  copyText: { fontSize: 11, fontWeight: "600", color: C.brand },
+  copyText: { fontSize: 11, fontWeight: "600", color: C.secondary },
 
   // Chip
   chip: {
@@ -961,24 +1019,44 @@ const styles = StyleSheet.create({
   },
   dotCol: { width: 20, alignItems: "center", zIndex: 1, marginRight: 14 },
   dotDone: {
-    width: 20,
-    height: 20,
+    width: 16,
+    height: 16,
     borderRadius: 10,
-    backgroundColor: C.brand,
+    backgroundColor: C.success,
     alignItems: "center",
     justifyContent: "center",
+  },
+  // Active step — now the "live" pink instead of blue, matched by the
+  // pulsing ring rendered in <ActiveDot />.
+  dotActiveWrap: {
+    width: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dotPulseRing: {
+    position: "absolute",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: C.active,
   },
   dotActive: {
-    width: 20,
-    height: 20,
+    width: 16,
+    height: 16,
     borderRadius: 10,
-    backgroundColor: C.softPink,
+    backgroundColor: C.active,
     borderWidth: 2,
-    borderColor: C.brand,
+    borderColor: C.active,
     alignItems: "center",
     justifyContent: "center",
   },
-  dotPulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.brand },
+  dotPulse: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#fff",
+  },
   dotFuture: {
     width: 20,
     height: 20,
@@ -991,7 +1069,7 @@ const styles = StyleSheet.create({
   timelineLabel: { fontSize: 13.5, lineHeight: 20 },
   timelineNote: {
     fontSize: 11,
-    color: C.brand,
+    color: C.active,
     fontWeight: "500",
     marginTop: 1,
   },
@@ -1013,8 +1091,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: C.muted,
   },
+  // The most-recent entry shares the same "live" pink as the active
+  // timeline dot — same semantic meaning (this is current), same color.
   historyDotActive: {
-    backgroundColor: C.brand,
+    backgroundColor: C.active,
     width: 10,
     height: 10,
     borderRadius: 5,
@@ -1023,7 +1103,7 @@ const styles = StyleSheet.create({
   historyDate: { fontSize: 11, color: C.muted, fontWeight: "500" },
   historyLocation: {
     fontSize: 10,
-    color: C.brand,
+    color: C.secondary,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
@@ -1044,17 +1124,18 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 10,
   },
-  expandBtnText: { fontSize: 12, fontWeight: "600", color: C.brand },
+  expandBtnText: { fontSize: 12, fontWeight: "600", color: C.secondary },
 
   // Address
   addressRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  // Neutral icon circle now.
   addrIconCircle: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: C.softPink,
+    backgroundColor: C.softGray,
     borderWidth: 1,
-    borderColor: C.lightBorder,
+    borderColor: C.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1086,6 +1167,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
+  // Refresh stays the single primary accent in this row — deliberate,
+  // everything else here is neutral.
   actionBtnPrimary: { backgroundColor: C.softPink, borderColor: C.lightBorder },
   actionBtnText: { fontSize: 12, fontWeight: "600", color: C.secondary },
 

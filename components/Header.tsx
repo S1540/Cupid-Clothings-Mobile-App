@@ -81,10 +81,10 @@ export default function Header({
   //   ).start();
   // }, []);
 
-  const bannerBg = bannerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["#ff5c84", "#F87387"],
-  });
+  // const bannerBg = bannerAnim.interpolate({
+  //   inputRange: [0, 1],
+  //   outputRange: ["#ff5c84", "#F87387"],
+  // });
 
   return (
     // ─── FIX 1: position absolute so it floats over the carousel ───
@@ -109,7 +109,6 @@ export default function Header({
           left: 0,
           right: 0,
           bottom: 0,
-
           backgroundColor:
             Platform.OS === "android"
               ? "rgba(255,247,253,0.55)"
@@ -225,6 +224,7 @@ export default function Header({
             <Pressable
               key={item}
               onPress={() => setActiveNav(item)}
+              hitSlop={20}
               className="items-center gap-1"
             >
               <Text

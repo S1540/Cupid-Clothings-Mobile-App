@@ -1,0 +1,691 @@
+﻿diff --git a/app/Cart.tsx b/app/Cart.tsx
+index 6e9add7..bfee2d7 100644
+--- a/app/Cart.tsx
++++ b/app/Cart.tsx
+@@ -2,8 +2,13 @@ import CartSkeleton from "@/components/CartSkeleton";
+ import LoginModel from "@/components/modal/LoginModel";
+ import SignUpModel from "@/components/modal/SignUpModel";
+ import { auth, db } from "@/firebaseConfig";
++import {
++  loadCart,
++  removeCartLine,
++  setCartLineQuantity,
++} from "@/lib/cart";
+ import { createCheckoutCart } from "@/lib/shopify";
+-import { useCartStore } from "@/store/cartStore";
++import { type CartItem, useCartStore } from "@/store/cartStore";
+ import { useLocationStore } from "@/store/useLocationStore";
+ import {
+   EvilIcons,
+@@ -11,11 +16,10 @@ import {
+   Ionicons,
+   MaterialCommunityIcons,
+ } from "@expo/vector-icons";
+-import AsyncStorage from "@react-native-async-storage/async-storage";
+ import { Stack, useRouter } from "expo-router";
+-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
+ import React, { useCallback, useEffect, useMemo, useState } from "react";
+ import {
++  Alert,
+   FlatList,
+   Image,
+   KeyboardAvoidingView,
+@@ -33,19 +37,6 @@ import {
+ } from "react-native";
+ import { useSafeAreaInsets } from "react-native-safe-area-context";
+ 
+-type CartItem = {
+-  id: string;
+-  handle: string;
+-  variantId: string;
+-  title: string;
+-  image: string;
+-  price: number;
+-  compareAtPrice?: number;
+-  discountPercent?: number;
+-  size: string;
+-  quantity: number;
+-};
+-
+ const C = {
+   pink: "#F87387",
+   pinkDeep: "#F87395",
+@@ -1040,6 +1031,7 @@ export default function Cart() {
+   const [openSignup, setOpenSignup] = useState(false);
+   const setCartItems = useCartStore((s) => s.setCartItems);
+   const cartItems = useCartStore((s) => s.cartItems);
++  const cartCount = useCartStore((s) => s.cartCount);
+   const insets = useSafeAreaInsets();
+   const { width: windowWidth } = useWindowDimensions();
+   const isTablet = windowWidth >= TABLET_BREAKPOINT;
+@@ -1077,84 +1069,73 @@ export default function Cart() {
+     (async () => {
+       try {
+         await new Promise((r) => setTimeout(r, 0));
+-        const user = auth.currentUser;
+-        if (user) {
+-          const snap = await getDocs(collection(db, "users", user.uid, "cart"));
+-          const items: CartItem[] = snap.docs.map((d) => ({
+-            id: d.id,
+-            ...(d.data() as Omit<CartItem, "id">),
+-          }));
+-          setCartItems(items);
+-          setLoading(false);
+-        } else {
+-          const raw = await AsyncStorage.getItem("cartItems");
+-          setCartItems(raw ? JSON.parse(raw) : []);
+-          setLoading(false);
+-        }
++        const items = await loadCart(auth.currentUser);
++        setCartItems(items);
++        setLoading(false);
+       } catch (e) {
+         console.error(e);
++        setLoading(false);
+       }
+     })();
+   }, []);
+ 
+   const remove = useCallback(
+-    async (id: string) => {
+-      const updated = cartItems.filter((i) => i.id !== id);
+-      setCartItems(updated);
++    async (cartKey: string) => {
+       try {
+-        const user = auth.currentUser;
+-        if (user)
+-          await deleteDoc(
+-            doc(db, "users", user.uid, "cart", id.split("/").pop()!),
+-          );
+-        else await AsyncStorage.setItem("cartItems", JSON.stringify(updated));
++        const updated = await removeCartLine(auth.currentUser, cartKey);
++        setCartItems(updated);
+       } catch (e) {
+         console.error(e);
+       }
+     },
+-    [cartItems, setCartItems],
+-  );
+-
+-  const persist = useCallback(
+-    async (items: CartItem[]) => {
+-      setCartItems(items);
+-      if (!auth.currentUser)
+-        await AsyncStorage.setItem("cartItems", JSON.stringify(items));
+-    },
+     [setCartItems],
+   );
+ 
+   const increase = useCallback(
+-    (id: string) =>
+-      persist(
+-        cartItems.map((i) =>
+-          i.id === id ? { ...i, quantity: i.quantity + 1 } : i,
+-        ),
+-      ),
+-    [cartItems, persist],
++    async (cartKey: string) => {
++      const item = cartItems.find((current) => current.cartKey === cartKey);
++      if (!item) return;
++
++      try {
++        const updated = await setCartLineQuantity(
++          auth.currentUser,
++          cartKey,
++          item.quantity + 1,
++        );
++        setCartItems(updated);
++      } catch (error) {
++        console.error(error);
++      }
++    },
++    [cartItems, setCartItems],
+   );
+ 
+   const decrease = useCallback(
+-    async (id: string) => {
+-      const item = cartItems.find((i) => i.id === id);
++    async (cartKey: string) => {
++      const item = cartItems.find((current) => current.cartKey === cartKey);
+ 
+       if (!item) return;
+-      if (item.quantity <= 0) {
+-        await remove(id);
++      if (item.quantity <= 1) {
++        await remove(cartKey);
+         return;
+       }
+ 
+-      persist(
+-        cartItems.map((i) =>
+-          i.id === id ? { ...i, quantity: i.quantity - 1 } : i,
+-        ),
+-      );
++      try {
++        const updated = await setCartLineQuantity(
++          auth.currentUser,
++          cartKey,
++          item.quantity - 1,
++        );
++        setCartItems(updated);
++      } catch (error) {
++        console.error(error);
++      }
+     },
+-    [cartItems, persist, remove],
++    [cartItems, remove, setCartItems],
+   );
+ 
+   const keyExtractor = useCallback(
+-    (item: CartItem, i: number) => `${item.id}-${item.size ?? i}`,
++    (item: CartItem) => item.cartKey,
+     [],
+   );
+ 
+@@ -1163,10 +1144,10 @@ export default function Cart() {
+       <CartItemRow
+         item={item}
+         onCheckout={() => handleCheckoutSingleProduct(item)}
+-        onIncrease={() => increase(item.id)}
+-        onDecrease={() => decrease(item.id)}
+-        onRemove={() => remove(item.id)}
+-        onWishlist={() => console.log("wishlist", item.id)}
++        onIncrease={() => increase(item.cartKey)}
++        onDecrease={() => decrease(item.cartKey)}
++        onRemove={() => remove(item.cartKey)}
++        onWishlist={() => console.log("wishlist", item.productId)}
+         onNavigate={() =>
+           router.push({
+             pathname: "/product/[handle]",
+@@ -1211,12 +1192,12 @@ export default function Cart() {
+ 
+         <View style={S.bagRow}>
+           <Text style={S.bagTitle} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+-            My Bag <Text style={S.bagCount}>({cartItems.length})</Text>
++            My Bag <Text style={S.bagCount}>({cartCount})</Text>
+           </Text>
+         </View>
+       </View>
+     ),
+-    [locationName, cartItems.length],
++    [locationName, cartCount],
+   );
+ 
+   const ListFooter = useCallback(() => {
+@@ -1233,7 +1214,7 @@ export default function Cart() {
+ 
+           <View style={S.priceLineRow}>
+             <Text style={S.priceLbl} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
+-              MRP ({cartItems.length} item{cartItems.length > 1 ? "s" : ""})
++              MRP ({cartCount} item{cartCount > 1 ? "s" : ""})
+             </Text>
+             <Text style={S.priceVal} maxFontSizeMultiplier={FONT_SCALE_TIGHT}>
+               ₹{subtotal + saved}
+@@ -1301,7 +1282,7 @@ export default function Cart() {
+         <TrustBadges />
+       </>
+     );
+-  }, [cartItems.length, subtotal, saved, shipping, total]);
++  }, [cartCount, cartItems.length, subtotal, saved, shipping, total]);
+ 
+   const handleCheckoutSingleProduct = useCallback(
+     async (product: CartItem) => {
+@@ -1321,8 +1302,13 @@ export default function Cart() {
+           pathname: "/CheckoutWebview",
+           params: { url: checkoutUrl },
+         });
+-      } catch (e) {
+-        console.log(e);
++      } catch (error) {
++        Alert.alert(
++          "Checkout unavailable",
++          error instanceof Error
++            ? error.message
++            : "We couldn't start checkout. Please try again.",
++        );
+       }
+     },
+     [router],
+@@ -1336,16 +1322,18 @@ export default function Cart() {
+       }
+       const res = await createCheckoutCart(cartItems, auth.currentUser);
+       const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
+-      if (!checkoutUrl) {
+-        console.log("NO CHECKOUT URL");
+-        return;
+-      }
++      if (!checkoutUrl) throw new Error("Shopify did not return a checkout URL.");
+       router.push({
+         pathname: "/CheckoutWebview",
+         params: { url: checkoutUrl },
+       });
+     } catch (error) {
+-      console.log("CHECKOUT ERROR", error);
++      Alert.alert(
++        "Checkout unavailable",
++        error instanceof Error
++          ? error.message
++          : "We couldn't start checkout. Please try again.",
++      );
+     }
+   }, [cartItems, router]);
+ 
+@@ -1420,7 +1408,7 @@ export default function Cart() {
+               initialNumToRender={5}
+             />
+             <CheckoutBar
+-              count={cartItems.length}
++              count={cartCount}
+               total={total}
+               shipping={shipping}
+               onCheckout={handleCheckout}
+diff --git a/store/cartStore.ts b/store/cartStore.ts
+index 4fa9cbf..8c36050 100644
+--- a/store/cartStore.ts
++++ b/store/cartStore.ts
+@@ -1,9 +1,15 @@
+ import { create } from "zustand";
+ 
++/**
++ * The only cart-line shape used by the app. `cartKey` is derived from the
++ * Shopify product and variant IDs, so two variants of one product stay
++ * independent everywhere the cart is stored.
++ */
+ export type CartItem = {
+-  id: string;
+-  title: string;
++  cartKey: string;
++  productId: string;
+   variantId: string;
++  title: string;
+   image: string;
+   price: number;
+   compareAtPrice?: number;
+@@ -13,11 +19,21 @@ export type CartItem = {
+   size: string;
+ };
+ 
++export const CART_STORAGE_KEY = "cartItems";
++
++export function createCartKey(productId: string, variantId: string): string {
++  return `${productId}::${variantId}`;
++}
++
++export function getCartQuantity(items: CartItem[]): number {
++  return items.reduce((total, item) => total + item.quantity, 0);
++}
++
+ type CartStore = {
+   cartItems: CartItem[];
+   setCartItems: (items: CartItem[]) => void;
+   addCartItem: (item: CartItem) => void;
+-  removeCartItem: (id: string, size: string) => void;
++  removeCartItem: (cartKey: string) => void;
+   cartCount: number;
+ };
+ 
+@@ -28,43 +44,34 @@ export const useCartStore = create<CartStore>((set, get) => ({
+   setCartItems: (items) =>
+     set({
+       cartItems: items,
+-      cartCount: items.length,
++      cartCount: getCartQuantity(items),
+     }),
+ 
+   addCartItem: (item) => {
+     const existing = get().cartItems;
+-    const already = existing.find(
+-      (i) => i.id === item.id && i.size === item.size,
+-    );
+-
+-    let updated = [];
+-    if (already) {
+-      updated = existing.map((i) =>
+-        i.id === item.id && i.size === item.size
+-          ? {
+-              ...i,
+-              quantity: i.quantity + 1,
+-            }
+-          : i,
+-      );
+-    } else {
+-      updated = [item, ...existing];
+-    }
++    const already = existing.find((current) => current.cartKey === item.cartKey);
++    const updated = already
++      ? existing.map((current) =>
++          current.cartKey === item.cartKey
++            ? { ...current, quantity: current.quantity + item.quantity }
++            : current,
++        )
++      : [item, ...existing];
+ 
+     set({
+       cartItems: updated,
+-      cartCount: updated.length,
++      cartCount: getCartQuantity(updated),
+     });
+   },
+ 
+-  removeCartItem: (id, size) => {
++  removeCartItem: (cartKey) => {
+     const updated = get().cartItems.filter(
+-      (i) => !(i.id === id && i.size === size),
++      (item) => item.cartKey !== cartKey,
+     );
+ 
+     set({
+       cartItems: updated,
+-      cartCount: updated.length,
++      cartCount: getCartQuantity(updated),
+     });
+   },
+ }));
+diff --git a/lib/cart.ts b/lib/cart.ts
+new file mode 100644
+index 0000000..4c9bd47
+--- /dev/null
++++ b/lib/cart.ts
+@@ -0,0 +1,302 @@
++import AsyncStorage from "@react-native-async-storage/async-storage";
++import { db } from "@/firebaseConfig";
++import {
++  collection,
++  deleteDoc,
++  doc,
++  getDocs,
++  writeBatch,
++  setDoc,
++} from "firebase/firestore";
++import type { User } from "firebase/auth";
++import {
++  CART_STORAGE_KEY,
++  createCartKey,
++  type CartItem,
++} from "@/store/cartStore";
++
++type StoredCartItem = Partial<CartItem> & {
++  id?: unknown;
++  productId?: unknown;
++  variantId?: unknown;
++  quantity?: unknown;
++  price?: unknown;
++  compareAtPrice?: unknown;
++  discountPercent?: unknown;
++  size?: unknown;
++  handle?: unknown;
++  title?: unknown;
++  image?: unknown;
++  cartKey?: unknown;
++};
++
++type CartDocument = {
++  sourceIds: string[];
++  item: CartItem;
++  needsMigration: boolean;
++};
++
++const asText = (value: unknown): string =>
++  typeof value === "string" ? value.trim() : "";
++
++const asNumber = (value: unknown): number | undefined => {
++  const numberValue = Number(value);
++  return Number.isFinite(numberValue) ? numberValue : undefined;
++};
++
++const asPositiveInteger = (value: unknown): number => {
++  const numberValue = Math.floor(Number(value));
++  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : 1;
++};
++
++/** Firestore document IDs cannot contain slashes from Shopify GIDs. */
++export function getCartDocumentId(cartKey: string): string {
++  return encodeURIComponent(cartKey);
++}
++
++function legacyVariantId(productId: string, sourceId: string): string {
++  return `legacy:${encodeURIComponent(sourceId || productId)}`;
++}
++
++function normalizeCartItem(
++  raw: StoredCartItem,
++  sourceId: string,
++): CartDocument | null {
++  const productId = asText(raw.productId) || asText(raw.id);
++  if (!productId) return null;
++
++  // Older app versions saved some rows without a variant. Keep them visible
++  // without allowing them to collide; checkout validation will ask the user to
++  // reselect that product because a real Shopify variant cannot be inferred.
++  const originalVariantId = asText(raw.variantId);
++  const variantId = originalVariantId || legacyVariantId(productId, sourceId);
++  const cartKey = createCartKey(productId, variantId);
++  const price = asNumber(raw.price) ?? 0;
++  const compareAtPrice = asNumber(raw.compareAtPrice);
++  const discountPercent = asNumber(raw.discountPercent);
++
++  const item: CartItem = {
++    cartKey,
++    productId,
++    variantId,
++    title: asText(raw.title),
++    image: asText(raw.image),
++    price,
++    ...(compareAtPrice === undefined ? {} : { compareAtPrice }),
++    ...(discountPercent === undefined ? {} : { discountPercent }),
++    handle: asText(raw.handle),
++    quantity: asPositiveInteger(raw.quantity),
++    size: asText(raw.size),
++  };
++
++  return {
++    sourceIds: [sourceId],
++    item,
++    needsMigration:
++      raw.cartKey !== cartKey ||
++      raw.productId !== productId ||
++      raw.id !== undefined ||
++      !originalVariantId ||
++      raw.quantity !== item.quantity ||
++      raw.price !== price,
++  };
++}
++
++function mergeCartDocuments(documents: CartDocument[]): CartDocument[] {
++  const byKey = new Map<string, CartDocument>();
++
++  for (const document of documents) {
++    const existing = byKey.get(document.item.cartKey);
++    if (!existing) {
++      byKey.set(document.item.cartKey, document);
++      continue;
++    }
++
++    byKey.set(document.item.cartKey, {
++      ...existing,
++      sourceIds: [...existing.sourceIds, ...document.sourceIds],
++      item: {
++        ...existing.item,
++        quantity: existing.item.quantity + document.item.quantity,
++      },
++      needsMigration: true,
++    });
++  }
++
++  return [...byKey.values()];
++}
++
++async function readGuestCart(): Promise<CartDocument[]> {
++  const rawValue = await AsyncStorage.getItem(CART_STORAGE_KEY);
++  if (!rawValue) return [];
++
++  try {
++    const parsed: unknown = JSON.parse(rawValue);
++    if (!Array.isArray(parsed)) return [];
++    return parsed
++      .map((item, index) => normalizeCartItem(item as StoredCartItem, String(index)))
++      .filter((item): item is CartDocument => item !== null);
++  } catch {
++    return [];
++  }
++}
++
++async function readFirebaseCart(user: User): Promise<CartDocument[]> {
++  const snapshot = await getDocs(collection(db, "users", user.uid, "cart"));
++  return snapshot.docs
++    .map((snapshotDocument) =>
++      normalizeCartItem(
++        snapshotDocument.data() as StoredCartItem,
++        snapshotDocument.id,
++      ),
++    )
++    .filter((item): item is CartDocument => item !== null);
++}
++
++async function migrateGuestCart(documents: CartDocument[]): Promise<void> {
++  await AsyncStorage.setItem(
++    CART_STORAGE_KEY,
++    JSON.stringify(documents.map((document) => document.item)),
++  );
++}
++
++async function migrateFirebaseCart(
++  user: User,
++  documents: CartDocument[],
++): Promise<void> {
++  const batch = writeBatch(db);
++  let changed = false;
++
++  for (const document of documents) {
++    const destination = doc(
++      db,
++      "users",
++      user.uid,
++      "cart",
++      getCartDocumentId(document.item.cartKey),
++    );
++
++    const hasSupersededSource = document.sourceIds.some(
++      (sourceId) => sourceId !== destination.id,
++    );
++    if (document.needsMigration || hasSupersededSource) {
++      batch.set(destination, document.item);
++      changed = true;
++      for (const sourceId of document.sourceIds) {
++        if (sourceId !== destination.id) {
++          batch.delete(doc(db, "users", user.uid, "cart", sourceId));
++        }
++      }
++    }
++  }
++
++  if (changed) await batch.commit();
++}
++
++export async function loadCart(user: User | null): Promise<CartItem[]> {
++  const documents = mergeCartDocuments(
++    user ? await readFirebaseCart(user) : await readGuestCart(),
++  );
++  const requiresMigration = documents.some((document) => document.needsMigration);
++
++  if (user) {
++    const hasLegacyDocumentId = documents.some(
++      (document) =>
++        document.sourceIds.some(
++          (sourceId) => sourceId !== getCartDocumentId(document.item.cartKey),
++        ),
++    );
++    if (requiresMigration || hasLegacyDocumentId) {
++      await migrateFirebaseCart(user, documents);
++    }
++  } else if (requiresMigration) {
++    await migrateGuestCart(documents);
++  }
++
++  return documents.map((document) => document.item);
++}
++
++async function saveCartLine(user: User | null, item: CartItem): Promise<void> {
++  if (user) {
++    await setDoc(
++      doc(db, "users", user.uid, "cart", getCartDocumentId(item.cartKey)),
++      item,
++    );
++    return;
++  }
++
++  const existing = await loadCart(null);
++  const updated = existing.some((current) => current.cartKey === item.cartKey)
++    ? existing.map((current) =>
++        current.cartKey === item.cartKey ? item : current,
++      )
++    : [item, ...existing];
++  await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updated));
++}
++
++export async function addCartLine(
++  user: User | null,
++  item: CartItem,
++): Promise<CartItem[]> {
++  const existing = await loadCart(user);
++  const current = existing.find((line) => line.cartKey === item.cartKey);
++  const line = current
++    ? { ...current, quantity: current.quantity + item.quantity }
++    : item;
++
++  await saveCartLine(user, line);
++  return current
++    ? existing.map((existingLine) =>
++        existingLine.cartKey === line.cartKey ? line : existingLine,
++      )
++    : [line, ...existing];
++}
++
++export async function setCartLineQuantity(
++  user: User | null,
++  cartKey: string,
++  quantity: number,
++): Promise<CartItem[]> {
++  const existing = await loadCart(user);
++  const line = existing.find((item) => item.cartKey === cartKey);
++  if (!line) return existing;
++
++  if (quantity < 1) return removeCartLine(user, cartKey, existing);
++
++  const updatedLine = { ...line, quantity: asPositiveInteger(quantity) };
++  await saveCartLine(user, updatedLine);
++  return existing.map((item) =>
++    item.cartKey === cartKey ? updatedLine : item,
++  );
++}
++
++export async function removeCartLine(
++  user: User | null,
++  cartKey: string,
++  knownItems?: CartItem[],
++): Promise<CartItem[]> {
++  const existing = knownItems ?? (await loadCart(user));
++  const updated = existing.filter((item) => item.cartKey !== cartKey);
++
++  if (user) {
++    await deleteDoc(
++      doc(db, "users", user.uid, "cart", getCartDocumentId(cartKey)),
++    );
++  } else {
++    await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updated));
++  }
++
++  return updated;
++}
++
++export async function clearCart(user: User | null): Promise<void> {
++  if (!user) {
++    await AsyncStorage.removeItem(CART_STORAGE_KEY);
++    return;
++  }
++
++  const snapshot = await getDocs(collection(db, "users", user.uid, "cart"));
++  const batch = writeBatch(db);
++  snapshot.docs.forEach((snapshotDocument) => batch.delete(snapshotDocument.ref));
++  await batch.commit();
++}

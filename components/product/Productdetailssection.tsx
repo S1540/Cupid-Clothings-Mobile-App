@@ -17,6 +17,8 @@ type Product = {
 
 type ProductDetailsSectionProps = {
   product: Product;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 };
 
 const PRODUCT_INFO = [
@@ -82,8 +84,15 @@ const TRUST_BADGES = [
 ];
 
 const ProductDetailsSection = React.memo(
-  ({ product }: ProductDetailsSectionProps) => {
-    const [expanded, setExpanded] = useState(false);
+  ({ product, expanded: controlledExpanded, onExpandedChange }: ProductDetailsSectionProps) => {
+    const [uncontrolledExpanded, setUncontrolledExpanded] = useState(false);
+    const expanded = controlledExpanded ?? uncontrolledExpanded;
+
+    const toggleExpanded = () => {
+      const nextExpanded = !expanded;
+      if (controlledExpanded === undefined) setUncontrolledExpanded(nextExpanded);
+      onExpandedChange?.(nextExpanded);
+    };
 
     return (
       <View style={{ paddingHorizontal: 16, gap: 12, paddingTop: 4 }}>
@@ -131,7 +140,7 @@ const ProductDetailsSection = React.memo(
 
         {/* Product details accordion */}
         <Pressable
-          onPress={() => setExpanded(!expanded)}
+          onPress={toggleExpanded}
           style={{
             backgroundColor: "#fff",
             borderRadius: 6,

@@ -1,0 +1,296 @@
+﻿diff --git a/app/product/[handle].tsx b/app/product/[handle].tsx
+index c6a2e6e..5449e9d 100644
+--- a/app/product/[handle].tsx
++++ b/app/product/[handle].tsx
+@@ -22,14 +22,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
+ import SuccessToast from "@/components/SuccessToast";
+ import CircleLoader from "@/components/ui/CircleLoader";
+ import { auth, db } from "@/firebaseConfig";
+-import { useCartStore } from "@/store/cartStore";
++import { addCartLine, loadCart } from "@/lib/cart";
++import { createCartKey, useCartStore } from "@/store/cartStore";
+ import AsyncStorage from "@react-native-async-storage/async-storage";
+ import {
+-  collection,
+   deleteDoc,
+   doc,
+   getDoc,
+-  getDocs,
+   setDoc,
+ } from "firebase/firestore";
+ 
+@@ -120,7 +119,6 @@ export default function ProductPage() {
+   }, []);
+ 
+   const setCartItems = useCartStore((state) => state.setCartItems);
+-  const addCartItem = useCartStore((state) => state.addCartItem);
+   const cartCount = useCartStore((state) => state.cartCount);
+ 
+   // ── Wishlist ────────────────────────────────────────────────────────────────
+@@ -198,28 +196,15 @@ export default function ProductPage() {
+   // ── Load cart on focus ──────────────────────────────────────────────────────
+   useFocusEffect(
+     React.useCallback(() => {
+-      const loadCart = async () => {
++      const hydrateCart = async () => {
+         try {
+-          const user = auth.currentUser;
+-          if (user) {
+-            const snapshot = await getDocs(
+-              collection(db, "users", user.uid, "cart"),
+-            );
+-            const firebaseCart = snapshot.docs.map((doc) => ({
+-              ...(doc.data() as any),
+-            }));
+-            setCartItems(firebaseCart);
+-          } else {
+-            const data = await AsyncStorage.getItem("cartItems");
+-            if (data) {
+-              setCartItems(JSON.parse(data));
+-            }
+-          }
++          const cart = await loadCart(auth.currentUser);
++          setCartItems(cart);
+         } catch (error) {
+           console.log(error);
+         }
+       };
+-      loadCart();
++      hydrateCart();
+     }, []),
+   );
+ 
+@@ -228,8 +213,11 @@ export default function ProductPage() {
+     try {
+       const selectedSize = selectedOptions["Size"];
+       const selectedVariant = product.variants.find((variant) =>
+-        variant.selectedOptions.some(
+-          (option) => option.name === "Size" && option.value === selectedSize,
++        Object.entries(selectedOptions).every(([optionName, optionValue]) =>
++          variant.selectedOptions.some(
++            (option) =>
++              option.name === optionName && option.value === optionValue,
++          ),
+         ),
+       );
+       if (!selectedSize) {
+@@ -237,57 +225,19 @@ export default function ProductPage() {
+         setSizeModalVisible(true);
+         return;
+       }
+-
+-      const user = auth.currentUser;
+-      if (!user) {
+-        setLoadingCart(true);
+-        const existing = await AsyncStorage.getItem("cartItems");
+-        let items = existing ? JSON.parse(existing) : [];
+-        const existingIndex = items.findIndex(
+-          (item: any) => item.id === product.id && item.size === selectedSize,
+-        );
+-        if (existingIndex > -1) {
+-          setToastValue("Item already in cart");
+-          setToastLinkText("Go to Bag");
+-          setToastPathname("/Cart");
+-          setShowToast(true);
+-          setTimeout(() => setShowToast(false), 1500);
+-        } else {
+-          items.unshift({
+-            id: product.id,
+-            handle: product.handle,
+-            title: product.title,
+-            image: product.images?.[0]?.url,
+-            price: product.price,
+-            compareAtPrice: product.compareAtPrice,
+-            discountPercent: product.discountPercent,
+-            quantity: 1,
+-            size: selectedSize,
+-          });
+-        }
+-        await AsyncStorage.setItem("cartItems", JSON.stringify(items));
+-        setLoadingCart(false);
+-      } else {
+-        const cleanId = product.id.split("/").pop();
+-        await setDoc(doc(db, "users", user.uid, "cart", cleanId as string), {
+-          id: product.id,
+-          handle: product.handle,
+-          variantId: selectedVariant?.id,
+-          title: product.title,
+-          image: product.images?.[0]?.url,
+-          price: product.price,
+-          compareAtPrice: product.compareAtPrice,
+-          discountPercent: product.discountPercent,
+-          quantity: 1,
+-          size: selectedSize,
+-          createdAt: new Date(),
+-        });
++      if (!selectedVariant) {
++        setToastValue("Please select an available variant");
++        setShowToast(true);
++        setTimeout(() => setShowToast(false), 1500);
++        return;
+       }
+ 
+-      addCartItem({
+-        id: product.id,
++      setLoadingCart(true);
++      const cart = await addCartLine(auth.currentUser, {
++        cartKey: createCartKey(product.id, selectedVariant.id),
++        productId: product.id,
+         title: product.title,
+-        variantId: selectedVariant!?.id,
++        variantId: selectedVariant.id,
+         image: product.images?.[0]?.url,
+         price: Number(product.price),
+         compareAtPrice: product.compareAtPrice
+@@ -298,6 +248,7 @@ export default function ProductPage() {
+         quantity: 1,
+         size: selectedSize,
+       });
++      setCartItems(cart);
+ 
+       setLoadingCart(false);
+       setToastValue("Item added to cart");
+@@ -315,54 +266,42 @@ export default function ProductPage() {
+   const buyNow = async (product: Product) => {
+     try {
+       const selectedSize = selectedOptions["Size"];
++      const selectedVariant = product.variants.find((variant) =>
++        Object.entries(selectedOptions).every(([optionName, optionValue]) =>
++          variant.selectedOptions.some(
++            (option) =>
++              option.name === optionName && option.value === optionValue,
++          ),
++        ),
++      );
+       if (!selectedSize) {
+         setPendingAction("buy");
+         setSizeModalVisible(true);
+         return;
+       }
+-      setLoadingCart(true);
+-      const user = auth.currentUser;
+-
+-      if (user) {
+-        const cleanId = product.id.split("/").pop();
+-        await setDoc(doc(db, "users", user.uid, "cart", cleanId as string), {
+-          id: product.id,
+-          handle: product.handle,
+-          title: product.title,
+-          image: product.images?.[0]?.url,
+-          price: product.price,
+-          compareAtPrice: product.compareAtPrice,
+-          discountPercent: product.discountPercent,
+-          quantity: 1,
+-          size: selectedSize,
+-          createdAt: new Date(),
+-        });
+-        setLoadingCart(false);
+-        console.log("Saved In Firebase");
+-      } else {
+-        const existing = await AsyncStorage.getItem("cartItems");
+-        let items = existing ? JSON.parse(existing) : [];
+-        const existingIndex = items.findIndex(
+-          (item: any) => item.id === product.id && item.size === selectedSize,
+-        );
+-        if (existingIndex > -1) {
+-          console.log("Already in cart");
+-        } else {
+-          items.unshift({
+-            id: product.id,
+-            handle: product.handle,
+-            title: product.title,
+-            image: product.images?.[0]?.url,
+-            price: product.price,
+-            compareAtPrice: product.compareAtPrice,
+-            discountPercent: product.discountPercent,
+-            quantity: 1,
+-            size: selectedSize,
+-          });
+-        }
+-        await AsyncStorage.setItem("cartItems", JSON.stringify(items));
+-        console.log("Saved In LocalStorage");
++      if (!selectedVariant) {
++        setToastValue("Please select an available variant");
++        setShowToast(true);
++        setTimeout(() => setShowToast(false), 1500);
++        return;
+       }
++      setLoadingCart(true);
++      const cart = await addCartLine(auth.currentUser, {
++        cartKey: createCartKey(product.id, selectedVariant.id),
++        productId: product.id,
++        title: product.title,
++        variantId: selectedVariant.id,
++        image: product.images?.[0]?.url,
++        price: Number(product.price),
++        compareAtPrice: product.compareAtPrice
++          ? Number(product.compareAtPrice)
++          : undefined,
++        discountPercent: product.discountPercent || undefined,
++        handle: product.handle,
++        quantity: 1,
++        size: selectedSize,
++      });
++      setCartItems(cart);
+       router.push("/Cart");
+     } catch (error) {
+       console.log(error);
+diff --git a/app/Wishlist.tsx b/app/Wishlist.tsx
+index 58f9bab..f883007 100644
+--- a/app/Wishlist.tsx
++++ b/app/Wishlist.tsx
+@@ -1,4 +1,6 @@
+ import { useCartStore } from "@/store/cartStore";
++import { addCartLine } from "@/lib/cart";
++import { createCartKey } from "@/store/cartStore";
+ import { EvilIcons, Feather, Ionicons } from "@expo/vector-icons";
+ import { router, Stack } from "expo-router";
+ import { getAuth } from "firebase/auth";
+@@ -442,7 +444,7 @@ export default function WishlistScreen() {
+   const [items, setItems] = useState<WishlistItem[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [refreshing, setRefreshing] = useState(false);
+-  const addToCart = useCartStore((s) => s.addCartItem);
++  const setCartItems = useCartStore((s) => s.setCartItems);
+   const insets = useSafeAreaInsets();
+   const auth = getAuth();
+   const uid = auth.currentUser?.uid;
+@@ -492,9 +494,19 @@ export default function WishlistScreen() {
+   );
+ 
+   const handleAddToCart = useCallback(
+-    (item: WishlistItem) => {
+-      addToCart({
+-        id: item.id,
++    async (item: WishlistItem) => {
++      if (!item.variantId) {
++        Alert.alert(
++          "Choose a variant",
++          "Please open this product and select its size or color before adding it to your bag.",
++        );
++        return;
++      }
++
++      try {
++        const cart = await addCartLine(auth.currentUser, {
++        cartKey: createCartKey(item.id, item.variantId),
++        productId: item.id,
+         title: item.title,
+         image: item.image,
+         price: item.price,
+@@ -505,9 +517,14 @@ export default function WishlistScreen() {
+         size: item.size ?? "One Size",
+         quantity: 1,
+       });
++        setCartItems(cart);
+       Alert.alert("Added to Bag", `${item.title} is in your bag.`);
++      } catch (error) {
++        console.error("Wishlist add to cart error:", error);
++        Alert.alert("Couldn't add to Bag", "Please try again.");
++      }
+     },
+-    [addToCart],
++    [auth.currentUser, setCartItems],
+   );
+ 
+   const handleQuickView = useCallback((item: WishlistItem) => {
