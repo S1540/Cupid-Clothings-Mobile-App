@@ -1,4 +1,5 @@
-const { admin } = require("../firebaseAdmin");
+const { getAuth } = require("firebase-admin/auth");
+const { app } = require("../firebaseAdmin");
 
 const verifyFirebaseToken = async (req, res, next) => {
   try {
@@ -12,16 +13,18 @@ const verifyFirebaseToken = async (req, res, next) => {
 
     const token = authHeader.replace("Bearer ", "");
 
-    const decoded = await admin.auth().verifyIdToken(token);
+    const decoded = await getAuth(app).verifyIdToken(token);
 
     req.user = decoded;
 
     next();
   } catch (err) {
-    console.log("VERIFY TOKEN ERROR:", err);
+    console.error("VERIFY TOKEN ERROR:", err);
+    console.error("ERROR CODE:", err.code);
+    console.error("ERROR MESSAGE:", err.message);
 
     return res.status(401).json({
-      message: "Invalid Token",
+      message: err.message,
     });
   }
 };

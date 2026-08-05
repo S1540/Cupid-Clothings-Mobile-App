@@ -1,4 +1,5 @@
-const { admin, db } = require("../firebaseAdmin");
+const { db, app } = require("../firebaseAdmin");
+const { getAuth } = require("firebase-admin/auth");
 
 const deleteUserAccount = async (uid) => {
   // Delete Address Collection
@@ -7,6 +8,7 @@ const deleteUserAccount = async (uid) => {
     .doc(uid)
     .collection("address")
     .get();
+
   for (const doc of address.docs) {
     await doc.ref.delete();
   }
@@ -54,8 +56,8 @@ const deleteUserAccount = async (uid) => {
   // Delete User Document
   await db.collection("users").doc(uid).delete();
 
-  // Delete Firebase Auth User
-  await admin.auth().deleteUser(uid);
+  // Delete Firebase Authentication User
+  await getAuth(app).deleteUser(uid);
 };
 
 module.exports = {
