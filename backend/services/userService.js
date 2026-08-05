@@ -7,7 +7,6 @@ const deleteUserAccount = async (uid) => {
     .doc(uid)
     .collection("address")
     .get();
-
   for (const doc of address.docs) {
     await doc.ref.delete();
   }
