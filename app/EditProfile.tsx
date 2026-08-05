@@ -847,7 +847,7 @@ const ProfileSummaryView = memo(
           <StatusRow label="Email Offers" active={form.emailOffers} />
           <View style={S.divider} />
           <View style={{ height: 12 }} />
-          <Pressable>
+          <Pressable onPress={onDeleteAccount}>
             <Text style={S.editPillTxt}>Delete Account</Text>
           </Pressable>
           <View style={{ height: 12 }} />

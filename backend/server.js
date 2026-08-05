@@ -4,6 +4,7 @@ require("dotenv").config();
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const judgeMeRoutes = require("./routes/judgeMeRoutes");
+const userRoutes = require("./routes/userRoutes");
 const { saveOrderToFirebase } = require("./services/orderService");
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.json());
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/judgeme", judgeMeRoutes);
+app.use("/api/users", userRoutes);
 // Test Webhook Shiprocket
 // app.post("/api/tracking-webhook", async (req, res) => {
 //   const token = req.headers["x-api-key"];

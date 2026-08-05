@@ -63,7 +63,5 @@ export async function deleteUserAccount(uid) {
 
   await db.collection("users").doc(uid).delete();
 
-  // Delete Firebase Auth
-
   await admin.auth().deleteUser(uid);
 }
