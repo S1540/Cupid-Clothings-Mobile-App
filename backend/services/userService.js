@@ -1,10 +1,9 @@
-import admin from "firebase-admin";
+const admin = require("firebase-admin");
 
 const db = admin.firestore();
 
-export async function deleteUserAccount(uid) {
+const deleteUserAccount = async (uid) => {
   // Delete Address Collection
-
   const address = await db
     .collection("users")
     .doc(uid)
@@ -16,7 +15,6 @@ export async function deleteUserAccount(uid) {
   }
 
   // Delete Cart Collection
-
   const cart = await db.collection("users").doc(uid).collection("cart").get();
 
   for (const doc of cart.docs) {
@@ -24,7 +22,6 @@ export async function deleteUserAccount(uid) {
   }
 
   // Delete Orders Collection
-
   const orders = await db
     .collection("users")
     .doc(uid)
@@ -35,8 +32,7 @@ export async function deleteUserAccount(uid) {
     await doc.ref.delete();
   }
 
-  // Delete Wishlist
-
+  // Delete Wishlist Collection
   const wishlist = await db
     .collection("users")
     .doc(uid)
@@ -47,8 +43,7 @@ export async function deleteUserAccount(uid) {
     await doc.ref.delete();
   }
 
-  // Delete Coupons
-
+  // Delete Coupons Collection
   const coupons = await db
     .collection("users")
     .doc(uid)
@@ -60,8 +55,12 @@ export async function deleteUserAccount(uid) {
   }
 
   // Delete User Document
-
   await db.collection("users").doc(uid).delete();
 
+  // Delete Firebase Auth User
   await admin.auth().deleteUser(uid);
-}
+};
+
+module.exports = {
+  deleteUserAccount,
+};
