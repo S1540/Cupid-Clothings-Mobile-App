@@ -1,6 +1,6 @@
-import { deleteUserAccount } from "../services/userService.js";
+const { deleteUserAccount } = require("../services/userService");
 
-export const deleteAccount = async (req, res) => {
+const deleteAccount = async (req, res) => {
   try {
     await deleteUserAccount(req.user.uid);
 
@@ -8,12 +8,16 @@ export const deleteAccount = async (req, res) => {
       success: true,
       message: "Account deleted successfully",
     });
-  } catch (e) {
-    console.log(e);
+  } catch (err) {
+    console.log(err);
 
     res.status(500).json({
       success: false,
-      message: "Something went wrong",
+      message: err.message,
     });
   }
+};
+
+module.exports = {
+  deleteAccount,
 };

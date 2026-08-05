@@ -1,9 +1,9 @@
-import express from "express";
-import { deleteAccount } from "../controllers/userController.js";
-import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.js";
-
+const express = require("express");
 const router = express.Router();
+
+const { deleteAccount } = require("../controllers/userController");
+const { verifyFirebaseToken } = require("../middleware/verifyFirebaseToken");
 
 router.delete("/delete-account", verifyFirebaseToken, deleteAccount);
 
-export default router;
+module.exports = router;

@@ -993,7 +993,7 @@ export default function EditProfile() {
       const token = await auth.currentUser?.getIdToken();
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/delete-account`,
+        `${process.env.EXPO_PUBLIC_API_URL}/api/users/delete-account`,
         {
           method: "DELETE",
           headers: {
