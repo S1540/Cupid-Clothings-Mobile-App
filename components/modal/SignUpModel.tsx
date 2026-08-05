@@ -117,7 +117,7 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
 
       setLoading(false);
       alert(
-        "Account created successfully.\n\nA verification link has been sent to your email. Please verify your email before logging in.",
+        `Welcome to Cupid! 🎉 We've sent a verification email.Please verify your email to complete your account setup`,
       );
       setSuccess(true);
       setTimeout(() => {
@@ -238,7 +238,7 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
               </View>
 
               {/* REFERRAL */}
-              <View className="mb-4">
+              {/* <View className="mb-4">
                 <Text className="text-[13px] font-semibold text-[#444] mb-2">
                   Referral Code (Optional)
                 </Text>
@@ -250,7 +250,7 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
                   autoCapitalize="characters"
                   className="border border-[#eee] rounded-xl px-4 py-4 text-[15px]"
                 />
-              </View>
+              </View> */}
               {/* BUTTON */}
               <Pressable
                 onPress={signUp}

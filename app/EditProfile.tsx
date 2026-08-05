@@ -28,6 +28,7 @@ import { updateDoc, doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { OneSignal } from "react-native-onesignal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const PRIMARY = "#759EF0";
 const PROGRESS_PINK = "#F87387";
@@ -747,11 +748,13 @@ const ProfileSummaryView = memo(
     completion,
     onEdit,
     onChangePhoto,
+    onDeleteAccount,
   }: {
     form: ProfileFormState;
     completion: number;
     onEdit: () => void;
     onChangePhoto: () => void;
+    onDeleteAccount: () => void;
   }) => {
     const locationLine = [form.city, form.state].filter(Boolean).join(", ");
 
@@ -858,11 +861,9 @@ const ProfileSummaryView = memo(
 
 export default function EditProfile() {
   const router = useRouter();
-
   const [form, setForm] = useState<ProfileFormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
-
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -986,6 +987,56 @@ export default function EditProfile() {
       "Connect expo-image-picker (or your preferred picker) here to select/capture a photo.",
     );
   }, []);
+  // Delete user
+  const deleteAccount = async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/delete-account`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Success", "Your account has been deleted.");
+
+        await AsyncStorage.clear();
+        await auth.signOut();
+
+        router.replace("/");
+      } else {
+        Alert.alert("Error", data.message);
+      }
+    } catch (error) {
+      console.log(error);
+      Alert.alert("Error", "Unable to delete account.");
+    }
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      "Delete Account",
+      "This action cannot be undone. Do you want to permanently delete your account?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: deleteAccount,
+        },
+      ],
+    );
+  };
 
   return (
     <>
@@ -1038,6 +1089,7 @@ export default function EditProfile() {
                   completion={completion}
                   onEdit={() => setIsEditing(true)}
                   onChangePhoto={pickImage}
+                  onDeleteAccount={confirmDelete}
                 />
               </Animated.View>
             </ScrollView>
