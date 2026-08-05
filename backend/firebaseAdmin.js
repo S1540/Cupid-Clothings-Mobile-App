@@ -1,5 +1,5 @@
-const { initializeApp, cert } = require("firebase-admin/app");
-const { getAuth } = require("firebase-admin/auth");
+const admin = require("firebase-admin");
+const { cert } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 
 const serviceAccount = {
@@ -8,24 +8,15 @@ const serviceAccount = {
   privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
 };
 
-const app = initializeApp({
-  credential: cert(serviceAccount),
-});
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: cert(serviceAccount),
+  });
+}
 
-const db = getFirestore(app);
-const auth = getAuth(app);
+const db = getFirestore();
 
-module.exports = { auth, db };
-
-// const { initializeApp, cert } = require("firebase-admin/app");
-// const { getFirestore } = require("firebase-admin/firestore");
-
-// const serviceAccount = require("./serviceAccountKey.json"); // path adjust kar lena
-
-// const app = initializeApp({
-//   credential: cert(serviceAccount),
-// });
-
-// const db = getFirestore(app);
-
-// module.exports = { db };
+module.exports = {
+  admin,
+  db,
+};

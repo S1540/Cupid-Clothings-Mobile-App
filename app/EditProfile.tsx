@@ -991,6 +991,7 @@ export default function EditProfile() {
   const deleteAccount = async () => {
     try {
       const token = await auth.currentUser?.getIdToken();
+      console.log("Token:", token);
 
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL}/api/users/delete-account`,

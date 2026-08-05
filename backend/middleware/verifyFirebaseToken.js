@@ -1,21 +1,25 @@
-const admin = require("firebase-admin");
+const { admin } = require("../firebaseAdmin");
 
 const verifyFirebaseToken = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace("Bearer ", "");
+    const authHeader = req.headers.authorization;
 
-    if (!token) {
+    if (!authHeader) {
       return res.status(401).json({
-        message: "Unauthorized",
+        message: "No token provided",
       });
     }
+
+    const token = authHeader.replace("Bearer ", "");
 
     const decoded = await admin.auth().verifyIdToken(token);
 
     req.user = decoded;
 
     next();
-  } catch (e) {
+  } catch (err) {
+    console.log("VERIFY TOKEN ERROR:", err);
+
     return res.status(401).json({
       message: "Invalid Token",
     });
