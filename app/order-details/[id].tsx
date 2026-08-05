@@ -118,6 +118,17 @@ const formatDateTime = (val: any): string => {
   }
 };
 
+// Final payable amount = order total minus whatever discount was applied.
+// NOTE: field names below are guessed (totalDiscount / discountAmount /
+// discount) since the Order type wasn't available here — if your
+// orderStore uses a different field, swap it in below.
+const getPayableAmount = (order: Order): number => {
+  const o = order as any;
+  const discount = o.totalDiscount ?? o.discountAmount ?? o.discount ?? 0;
+  const payable = o.payableAmount ?? o.amountPaid ?? order.total - discount;
+  return Math.max(0, payable);
+};
+
 // ─── Shimmer ------------------------------
 const Shimmer = memo(({ style }: { style: any }) => {
   const opacity = useRef(new Animated.Value(0.35)).current;
@@ -337,8 +348,12 @@ const Timeline = memo(({ trackingStatus }: { trackingStatus?: string }) => {
     <View>
       {TIMELINE_STEPS.map((step, idx) => {
         const isDone = idx < effectiveIdx;
-        const isActive = idx === effectiveIdx;
         const isLast = idx === TIMELINE_STEPS.length - 1;
+        // Order is fully delivered — the last step should read as
+        // "complete" (green check), never as a still-pulsing active dot.
+        const finalDelivered =
+          TIMELINE_STEPS[currentIdx]?.key === "DELIVERED" && isLast;
+        const isActive = idx === effectiveIdx && !finalDelivered;
 
         return (
           <View key={step.key} style={styles.timelineRow}>
@@ -347,14 +362,21 @@ const Timeline = memo(({ trackingStatus }: { trackingStatus?: string }) => {
               <View
                 style={[
                   styles.timelineLine,
-                  { backgroundColor: isDone ? `${C.success}` : "#EBEBEB" },
+                  {
+                    backgroundColor:
+                      isDone || finalDelivered ? `${C.success}` : "#EBEBEB",
+                  },
                 ]}
               />
             )}
 
             {/* Dot */}
             <View style={styles.dotCol}>
-              {isDone ? (
+              {finalDelivered ? (
+                <View style={styles.dotDone}>
+                  <Ionicons name="checkmark" size={11} color="#fff" />
+                </View>
+              ) : isDone ? (
                 <View style={styles.dotDone}>
                   <Ionicons name="checkmark" size={11} color="#fff" />
                 </View>
@@ -372,15 +394,27 @@ const Timeline = memo(({ trackingStatus }: { trackingStatus?: string }) => {
               <Text
                 style={[
                   styles.timelineLabel,
-                  isDone && { color: C.primary, fontWeight: "500" },
+                  (isDone || finalDelivered) && {
+                    color: C.primary,
+                    fontWeight: "500",
+                  },
                   isActive && { color: C.active, fontWeight: "700" },
-                  !isDone && !isActive && { color: C.muted },
+                  !isDone &&
+                    !isActive &&
+                    !finalDelivered && {
+                      color: C.muted,
+                    },
                 ]}
               >
                 {step.label}
               </Text>
               {isActive && (
                 <Text style={styles.timelineNote}>Current Status</Text>
+              )}
+              {finalDelivered && (
+                <Text style={[styles.timelineNote, { color: C.success }]}>
+                  Delivered
+                </Text>
               )}
             </View>
           </View>
@@ -591,6 +625,7 @@ export default function OrderTrackingScreen() {
   const isException = EXCEPTION_STATUSES.has(
     order.trackingStatus?.toUpperCase().trim() || "",
   );
+  const payableAmount = getPayableAmount(order);
 
   return (
     <>
@@ -644,7 +679,7 @@ export default function OrderTrackingScreen() {
                 </View>
                 <View style={styles.totalPill}>
                   <Text style={styles.totalPillText}>
-                    ₹{order.total.toLocaleString("en-IN")}
+                    ₹{payableAmount.toLocaleString("en-IN")}
                   </Text>
                 </View>
               </View>
@@ -811,14 +846,6 @@ export default function OrderTrackingScreen() {
           {/* ── 6. Actions ── */}
           <Anim idx={5}>
             <View style={styles.actionRow}>
-              <Pressable style={styles.actionBtn}>
-                <Ionicons
-                  name="download-outline"
-                  size={15}
-                  color={C.secondary}
-                />
-                <Text style={styles.actionBtnText}>Invoice</Text>
-              </Pressable>
               <Pressable style={styles.actionBtn}>
                 <Feather name="headphones" size={14} color={C.secondary} />
                 <Text style={styles.actionBtnText}>Support</Text>
@@ -1026,8 +1053,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // Active step — now the "live" pink instead of blue, matched by the
-  // pulsing ring rendered in <ActiveDot />.
+  // Active step — pink pulsing ring while an intermediate step is in
+  // progress; the final "DELIVERED" step never uses this (see
+  // `finalDelivered` in <Timeline />), it always renders as a green
+  // <dotDone /> instead.
   dotActiveWrap: {
     width: 16,
     height: 16,

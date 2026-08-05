@@ -37,10 +37,12 @@ export default function SearchPage() {
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const requestIdRef = useRef(0);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [listening, setListening] = useState(false);
 
   // Pulse animation
@@ -69,20 +71,37 @@ export default function SearchPage() {
   useEffect(() => {
     if (query.trim().length < 2) {
       setResults([]);
+      setSearchError("");
       return;
     }
+    const requestId = ++requestIdRef.current;
     const timer = setTimeout(async () => {
       try {
         setLoading(true);
+        setSearchError("");
         const res = await fetch(
           `${process.env.EXPO_PUBLIC_API_URL}/api/products/search?q=${encodeURIComponent(query)}`,
         );
-        const data: Product[] = await res.json();
+        const responseText = await res.text();
+        let data: Product[] | { error?: string };
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error("Search service returned an invalid response.");
+        }
+        if (requestId !== requestIdRef.current) return;
+        if (!res.ok || !Array.isArray(data)) {
+          throw new Error(
+            (data as { error?: string }).error || "Search is temporarily unavailable.",
+          );
+        }
         setResults(data);
       } catch (e) {
-        console.log("Search error:", e);
+        if (requestId !== requestIdRef.current) return;
+        setResults([]);
+        setSearchError(e instanceof Error ? e.message : "Search is temporarily unavailable.");
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) setLoading(false);
       }
     }, 200);
     return () => clearTimeout(timer);
@@ -190,7 +209,16 @@ export default function SearchPage() {
           </View>
         )}
 
-        {!loading && query.length >= 2 && results.length === 0 && (
+        {!loading && query.length >= 2 && searchError && (
+          <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
+            <Feather name="wifi-off" size={28} color="#ff5c84" />
+            <Text style={{ fontSize: 15, fontWeight: "700", color: "#1a1a1a", textAlign: "center" }}>
+              {searchError}
+            </Text>
+          </View>
+        )}
+
+        {!loading && !searchError && query.length >= 2 && results.length === 0 && (
           <View
             style={{
               flex: 1,

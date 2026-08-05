@@ -33,59 +33,6 @@ export default function Header({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bannerAnim = useRef(new Animated.Value(0)).current;
-
-  // useFocusEffect(
-  //   React.useCallback(() => {
-  //     const loadCart = async () => {
-  //       try {
-  //         const user = auth.currentUser;
-  //         if (user) {
-  //           const snapshot = await getDocs(
-  //             collection(db, "users", user.uid, "cart"),
-  //           );
-  //           const firebaseCart = snapshot.docs.map((doc) => ({
-  //             ...(doc.data() as any),
-  //           }));
-  //           console.log("Firebase Header Count");
-  //         } else {
-  //           const data = await AsyncStorage.getItem("cartItems");
-  //           if (data) {
-  //             const parsed = JSON.parse(data);
-  //             setCartItems(parsed);
-  //           }
-  //         }
-  //       } catch (error) {
-  //         console.log(error);
-  //       }
-  //     };
-  //     loadCart();
-  //   }, []),
-  // );
-
-  // useEffect(() => {
-  //   Animated.loop(
-  //     Animated.sequence([
-  //       Animated.timing(bannerAnim, {
-  //         toValue: 1,
-  //         duration: 2000,
-  //         easing: Easing.inOut(Easing.ease),
-  //         useNativeDriver: false,
-  //       }),
-  //       Animated.timing(bannerAnim, {
-  //         toValue: 0,
-  //         duration: 2000,
-  //         easing: Easing.inOut(Easing.ease),
-  //         useNativeDriver: false,
-  //       }),
-  //     ]),
-  //   ).start();
-  // }, []);
-
-  // const bannerBg = bannerAnim.interpolate({
-  //   inputRange: [0, 1],
-  //   outputRange: ["#ff5c84", "#F87387"],
-  // });
-
   return (
     // ─── FIX 1: position absolute so it floats over the carousel ───
     <View

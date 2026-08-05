@@ -95,30 +95,6 @@ export const BANNERS: Record<string, BannerItem[]> = {
         "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782218557/WhatsApp_Image_2026-06-23_at_6.06.37_PM_2_ny6bfq.jpg",
     },
   ],
-  "Deal's & Offers": [
-    {
-      id: 1,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782218558/WhatsApp_Image_2026-06-23_at_6.06.37_PM_1_r5athx.jpg",
-    },
-    {
-      id: 2,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782200513/Deals_and_offers_20260623_130917_0002_aupz6t.png",
-    },
-  ],
-  "New-Arrivals": [
-    {
-      id: 1,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782218558/WhatsApp_Image_2026-06-23_at_6.06.37_PM_d4b4vf.jpg",
-    },
-    {
-      id: 2,
-      image:
-        "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782200508/New_arrivals_20260623_130917_0001_vxvfxn.png",
-    },
-  ],
   "Best Sellers": [
     {
       id: 1,

@@ -13,6 +13,8 @@ import "./constants/mapbox";
 import "../global.css";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { auth, db } from "@/firebaseConfig";
+import { loadCart } from "@/lib/cart";
+import { useCartStore } from "@/store/cartStore";
 import { doc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "../store/userStore";
@@ -32,6 +34,7 @@ export default function RootLayout() {
   const pathname = usePathname();
   const setUser = useUserStore((state) => state.setUser);
   const clearUser = useUserStore((state) => state.clearUser);
+  const setCartItems = useCartStore((state) => state.setCartItems);
 
   const hideBottomBar =
     pathname.startsWith("/product/") ||
@@ -56,6 +59,10 @@ export default function RootLayout() {
   useEffect(() => {
     let unsubscribeUser: (() => void) | undefined;
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      void loadCart(firebaseUser)
+        .then((items) => setCartItems(items))
+        .catch((error) => console.error("Initial cart hydration failed:", error));
+
       if (unsubscribeUser) {
         unsubscribeUser();
       }
@@ -93,7 +100,7 @@ export default function RootLayout() {
         unsubscribeUser();
       }
     };
-  }, []);
+  }, [setCartItems]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;

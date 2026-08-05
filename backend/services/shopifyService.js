@@ -142,7 +142,65 @@ async function fetchMenu(menuHandle) {
     })),
   }));
 }
-async function searchProducts(query) {
+const searchCache = new Map();
+const SEARCH_CACHE_TTL = 30_000;
+const SEARCH_SYNONYMS = {
+  pant: ["pants", "trouser", "trousers", "bottom"],
+  pants: ["pant", "trouser", "trousers", "bottom"],
+  trouser: ["pant", "pants", "trousers", "bottom"],
+  tshirt: ["t-shirt", "tee", "t shirt"],
+  tee: ["tshirt", "t-shirt", "t shirt"],
+  short: ["shorts", "half"],
+  shorts: ["short", "half"],
+  half: ["short", "shorts", "capri"],
+  cool: ["casual", "summer", "cotton", "oversized"],
+  blue: ["navy", "indigo", "sky"],
+  party: ["partywear", "occasion", "dressy"],
+  nightwear: ["night suit", "sleepwear", "pajama", "pyjama"],
+  pajama: ["pajamas", "night suit", "sleepwear"],
+};
+
+const normalizeSearch = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const tokenizeSearch = (value) =>
+  [...new Set(normalizeSearch(value).split(" ").filter((token) => token.length > 1))];
+
+const toSearchProduct = (node) => {
+  const original = parseFloat(node.compareAtPriceRange?.minVariantPrice?.amount || 0);
+  const sale = parseFloat(node.priceRange?.minVariantPrice?.amount || 0);
+  const discount = original > sale ? Math.round(((original - sale) / original) * 100) : 0;
+  return {
+    id: node.id,
+    title: node.title,
+    handle: node.handle,
+    description: node.description || "",
+    productType: node.productType || "",
+    vendor: node.vendor || "",
+    tags: node.tags || [],
+    price: sale.toFixed(0),
+    compareAtPrice: original > sale ? original.toFixed(0) : null,
+    discountPercent: discount > 0 ? discount : null,
+    images: (node.images?.edges || []).map((img) => ({ url: img.node.url, alt: img.node.altText })),
+  };
+};
+
+const scoreSearchProduct = (product, tokens) => {
+  const searchable = [product.title, product.handle, product.description, product.productType, product.vendor, ...(product.tags || [])].join(" ").toLowerCase();
+  const title = String(product.title || "").toLowerCase();
+  const matched = tokens.reduce((total, token) => {
+    const alternatives = [token, ...(SEARCH_SYNONYMS[token] || [])];
+    return total + (alternatives.some((word) => searchable.includes(word)) ? 1 : 0);
+  }, 0);
+  const titleMatches = tokens.reduce((total, token) => total + (title.includes(token) ? 1 : 0), 0);
+  return matched * 10 + titleMatches * 8 + (searchable.includes(tokens.join(" ")) ? 12 : 0);
+};
+
+async function fetchSearchProducts(searchQuery) {
   const response = await fetch(
     `https://${SHOP}.myshopify.com/api/2025-01/graphql.json`,
     {
@@ -152,20 +210,24 @@ async function searchProducts(query) {
         "X-Shopify-Storefront-Access-Token": STOREFRONT_TOKEN,
       },
       body: JSON.stringify({
-        query: `{
-          products(first: 20, query: "${query}") {
+        query: `query SearchProducts($searchQuery: String!) {
+          products(first: 50, query: $searchQuery) {
             edges {
               node {
                 id
                 title
+                description
                 handle
+                productType
+                vendor
+                tags
                 priceRange {
                   minVariantPrice { amount currencyCode }
                 }
                 compareAtPriceRange {
                   minVariantPrice { amount }
                 }
-                images(first: 1) {
+                images(first: 2) {
                   edges {
                     node { url altText }
                   }
@@ -174,12 +236,17 @@ async function searchProducts(query) {
             }
           }
         }`,
+        variables: { searchQuery },
       }),
     },
   );
 
   const data = await response.json();
-  return data.data.products.edges.map((edge) => {
+  if (!response.ok || data.errors) {
+    throw new Error(data.errors?.[0]?.message || `Shopify search error: ${response.status}`);
+  }
+  return (data.data?.products?.edges || []).map((edge) => toSearchProduct(edge.node));
+/*
     const original = parseFloat(
       edge.node.compareAtPriceRange.minVariantPrice.amount,
     );
@@ -199,8 +266,32 @@ async function searchProducts(query) {
         alt: img.node.altText,
       })),
     };
-  });
+  });*/
 }
+async function searchProducts(query) {
+  const normalizedQuery = normalizeSearch(query);
+  if (!normalizedQuery) return [];
+
+  const cached = searchCache.get(normalizedQuery);
+  if (cached && Date.now() - cached.createdAt < SEARCH_CACHE_TTL) return cached.products;
+
+  const tokens = tokenizeSearch(normalizedQuery);
+  const candidateLists = await Promise.all([
+    fetchSearchProducts(normalizedQuery),
+    ...tokens.slice(0, 4).map((token) => fetchSearchProducts(token)),
+  ]);
+  const uniqueProducts = [...new Map(candidateLists.flat().map((product) => [product.id, product])).values()];
+  const products = uniqueProducts
+    .map((product) => ({ product, score: scoreSearchProduct(product, tokens) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 40)
+    .map(({ product }) => product);
+
+  searchCache.set(normalizedQuery, { createdAt: Date.now(), products });
+  return products;
+}
+
 // for product page  ....
 async function fetchSingleProduct(handle) {
   const response = await fetch(

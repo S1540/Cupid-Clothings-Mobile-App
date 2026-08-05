@@ -976,7 +976,7 @@ export default function Index() {
             ListFooterComponent={
               <View>
                 {!showHomeLayout && <WarrningLable />}
-                <View style={{ height: 10 + insets.bottom }} />
+                <View style={{ height: 60 + insets.bottom }} />
               </View>
             }
             contentInsetAdjustmentBehavior="never"

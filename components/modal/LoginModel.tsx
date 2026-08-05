@@ -37,7 +37,26 @@ const LoginModel = ({
 
     try {
       setLoading(true);
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password,
+      );
+
+      // Refresh latest user info
+      await credential.user.reload();
+
+      if (!credential.user.emailVerified) {
+        await auth.signOut();
+
+        setError(
+          "Please verify your email before logging in. Check your inbox or spam folder.",
+        );
+
+        return;
+      }
+
+      // Verified user
       setOpenLogin(false);
       setEmail("");
       setPassword("");
@@ -134,7 +153,7 @@ const LoginModel = ({
                   value={email}
                   onChangeText={setEmail}
                   focusable
-                  placeholder="Email or Phone"
+                  placeholder="Email Address"
                   placeholderTextColor="#bbb"
                   className="flex-1 text-[15px] text-[#1c1c1c]"
                   keyboardType="email-address"

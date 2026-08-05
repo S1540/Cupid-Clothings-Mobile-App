@@ -32,7 +32,27 @@ const STATUS_CONFIG: Record<
 
 // ----------- Order Row (Order Card Ui)-------------------
 const OrderRow = ({ order, onPress }: { order: any; onPress: () => void }) => {
-  const cfg = STATUS_CONFIG.processing;
+  const getOrderStatus = (order: Order): OrderStatus => {
+    const tracking = order.trackingStatus?.toUpperCase() || "";
+    const status = order.status?.toUpperCase() || "";
+
+    if (tracking.includes("DELIVERED")) return "delivered";
+    if (
+      tracking.includes("OUT FOR DELIVERY") ||
+      tracking.includes("SHIPPED") ||
+      tracking.includes("IN TRANSIT")
+    ) {
+      return "shipped";
+    }
+
+    if (status.includes("CANCELLED") || tracking.includes("CANCELLED")) {
+      return "cancelled";
+    }
+
+    return "processing";
+  };
+
+  const cfg = STATUS_CONFIG[getOrderStatus(order)];
 
   return (
     <Pressable
@@ -163,19 +183,6 @@ const EmptyOrdersState = ({ onShopPress }: { onShopPress: () => void }) => (
     >
       Looks like you haven't placed any orders.
     </Text>
-    {/* <Pressable
-      onPress={onShopPress}
-      style={{
-        paddingHorizontal: 24,
-        paddingVertical: 13,
-        borderRadius: 6,
-        backgroundColor: "#F87387",
-      }}
-    >
-      <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
-        Start Shopping
-      </Text>
-    </Pressable> */}
   </View>
 );
 

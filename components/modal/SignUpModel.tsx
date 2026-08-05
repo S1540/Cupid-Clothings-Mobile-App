@@ -9,7 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+} from "firebase/auth";
 import { auth, db } from "@/firebaseConfig";
 import {
   collection,
@@ -88,6 +91,7 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
         lastRewardAt: null,
         createdAt: new Date(),
       });
+      await sendEmailVerification(response.user);
       if (referrerDoc) {
         // Referrer ko reward
         await updateDoc(referrerDoc.ref, {
@@ -112,6 +116,9 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
       }
 
       setLoading(false);
+      alert(
+        "Account created successfully.\n\nA verification link has been sent to your email. Please verify your email before logging in.",
+      );
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);

@@ -30,7 +30,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { OneSignal } from "react-native-onesignal";
 
 const PRIMARY = "#759EF0";
-const ACCENT_SOFT = "#EAF0FD";
 const PROGRESS_PINK = "#F87387";
 const BORDER = "#EFEFF1";
 const INK = "#242424";
@@ -843,7 +842,12 @@ const ProfileSummaryView = memo(
           <StatusRow label="WhatsApp Updates" active={form.whatsappUpdates} />
           <View style={S.divider} />
           <StatusRow label="Email Offers" active={form.emailOffers} />
-          <View style={{ height: 4 }} />
+          <View style={S.divider} />
+          <View style={{ height: 12 }} />
+          <Pressable>
+            <Text style={S.editPillTxt}>Delete Account</Text>
+          </Pressable>
+          <View style={{ height: 12 }} />
         </SummaryCard>
       </View>
     );
