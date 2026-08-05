@@ -1,6 +1,4 @@
-const admin = require("firebase-admin");
-
-const db = admin.firestore();
+const { admin, db } = require("../firebaseAdmin");
 
 const deleteUserAccount = async (uid) => {
   // Delete Address Collection
