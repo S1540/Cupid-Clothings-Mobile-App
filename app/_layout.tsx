@@ -19,6 +19,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "../store/userStore";
 import { OneSignal, LogLevel } from "react-native-onesignal";
+import { Analytics } from "@/lib/analytics";
 import BottomBar from "@/components/BottomBar";
 import CustomSplash from "@/components/ui/CustomSplash";
 
@@ -47,6 +48,10 @@ export default function RootLayout() {
     pathname === "/Orders" ||
     pathname === "/Order-Details" ||
     pathname === "/Wishlist";
+  // Start Analytics
+  useEffect(() => {
+    Analytics.appOpen();
+  }, []);
 
   // For OneSignal Notifications Initialization
   useEffect(() => {
@@ -61,7 +66,9 @@ export default function RootLayout() {
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       void loadCart(firebaseUser)
         .then((items) => setCartItems(items))
-        .catch((error) => console.error("Initial cart hydration failed:", error));
+        .catch((error) =>
+          console.error("Initial cart hydration failed:", error),
+        );
 
       if (unsubscribeUser) {
         unsubscribeUser();

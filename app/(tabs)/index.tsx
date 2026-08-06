@@ -3,17 +3,17 @@ import Header from "@/components/Header";
 import LoginRewardModal from "@/components/modal/Loginrewardmodal";
 import Similarproductsmodal from "@/components/modal/Similarproductsmodal";
 import CircleLoader from "@/components/ui/CircleLoader";
+import ComfortCategoryGrid from "@/components/ui/ComfortCategoryGrid";
 import HomeSkeleton from "@/components/ui/HomeSkeleton";
+import KidsCollections from "@/components/ui/KidsCollection";
 import ProductCard from "@/components/ui/ProductCrad";
 import PromoHotDeals from "@/components/ui/PromoHotDeals";
-import KidsCollections from "@/components/ui/KidsCollection";
 import RecommendedProductsSection from "@/components/ui/RecommendedProductsSection";
-import ComfortCategoryGrid from "@/components/ui/ComfortCategoryGrid";
 import { auth } from "@/firebaseConfig";
-import { Image } from "expo-image";
-import { router, useFocusEffect, useRouter } from "expo-router";
 import { Marquee } from "@animatereactnative/marquee";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { router, useFocusEffect } from "expo-router";
 import React, {
   memo,
   useCallback,
@@ -35,25 +35,25 @@ import {
   View,
 } from "react-native";
 
+import WarrningLable from "@/components/WarrningLable";
+import { Analytics } from "@/lib/analytics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Carousel from "react-native-reanimated-carousel";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import "../../global.css";
 import {
-  CATEGORY_IMAGES,
   BANNERS,
-  type BannerItem,
-  OFFERS,
-  type Offer,
+  CATEGORY_IMAGES,
+  COMFORTABLE,
+  kidsImages,
   offerCollections,
   offerCollections2,
-  type offerCollectionsType,
-  kidsImages,
+  OFFERS,
+  type BannerItem,
   type ComfortableItem,
-  COMFORTABLE,
+  type Offer,
+  type offerCollectionsType,
 } from "../../localData/localData";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import WarrningLable from "@/components/WarrningLable";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type Subcategory = { title: string; handle: string; image: string | null };
@@ -89,15 +89,17 @@ const ANNOUNCEMENTS = [
 // ─── SMALL COMPONENTS ─────────────────────────────────────────────────────────
 
 const BannerSlide = memo(({ item }: { item: BannerItem }) => (
-  <View style={styles.bannerSlide}>
-    <Image
-      source={{ uri: item.image }}
-      style={StyleSheet.absoluteFillObject}
-      contentFit="cover"
-      cachePolicy="memory-disk"
-      transition={120}
-    />
-  </View>
+  <Pressable onPress={() => router.push(`/category/${item.handle}`)}>
+    <View style={styles.bannerSlide}>
+      <Image
+        source={{ uri: item.image }}
+        style={StyleSheet.absoluteFillObject}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        transition={120}
+      />
+    </View>
+  </Pressable>
 ));
 
 const OfferSlide = memo(({ item }: { item: Offer }) => (
@@ -711,6 +713,13 @@ export default function Index() {
       ),
     [allProducts, searchText],
   );
+  // firebase tracking analytics
+  useEffect(() => {
+    console.log("Analytics Screen Fired");
+
+    Analytics.screen("Home");
+  }, []);
+
   // Fetching review from Firebse db
   useEffect(() => {
     const fetchReviewSummary = async () => {

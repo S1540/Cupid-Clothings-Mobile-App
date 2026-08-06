@@ -844,7 +844,7 @@ export default function OrderTrackingScreen() {
           </Anim>
 
           {/* ── 6. Actions ── */}
-          <Anim idx={5}>
+          {/* <Anim idx={5}>
             <View style={styles.actionRow}>
               <Pressable style={styles.actionBtn}>
                 <Feather name="headphones" size={14} color={C.secondary} />
@@ -857,7 +857,7 @@ export default function OrderTrackingScreen() {
                 </Text>
               </Pressable>
             </View>
-          </Anim>
+          </Anim> */}
         </ScrollView>
       </View>
     </>

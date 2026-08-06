@@ -28,6 +28,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 
 // ── Extracted components ──────────────────────────────────────────────────────
+import { Analytics } from "@/lib/analytics";
 import ProductBottomSection from "../../components/product/Productbottomsection";
 import ProductDetailsSection from "../../components/product/Productdetailssection";
 import ProductGallery from "../../components/product/ProductGallery";
@@ -114,6 +115,21 @@ export default function ProductPage() {
     const h = e.nativeEvent.layout.height;
     setCtaBarHeight((prev) => (prev !== h ? h : prev));
   }, []);
+  // Firebase analytics event tracking
+  useEffect(() => {
+    Analytics.screen("Product Details");
+  }, []);
+  // Firebase analytics event tracking-2
+  useEffect(() => {
+    if (!product) return;
+
+    Analytics.viewProduct({
+      id: product.id,
+      title: product.title,
+      price: Number(product.price),
+      // category: product.,
+    });
+  }, [product]);
 
   const handleReadMore = useCallback(() => {
     setDetailsExpanded(true);
@@ -263,6 +279,12 @@ export default function ProductPage() {
         handle: product.handle,
         quantity: 1,
         size: selectedSize,
+      });
+      await Analytics.addToCart({
+        id: product.id,
+        title: product.title,
+        price: Number(selectedVariant.price),
+        quantity: 1,
       });
       setCartItems(cart);
 
@@ -676,7 +698,10 @@ export default function ProductPage() {
           renderItem={renderSection}
           onScrollToIndexFailed={() => {
             requestAnimationFrame(() => {
-              productListRef.current?.scrollToIndex({ index: 2, animated: true });
+              productListRef.current?.scrollToIndex({
+                index: 2,
+                animated: true,
+              });
             });
           }}
           ListFooterComponent={<View style={{ height: ctaBarHeight }} />}

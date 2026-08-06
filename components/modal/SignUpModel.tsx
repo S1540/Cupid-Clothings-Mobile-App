@@ -26,6 +26,7 @@ import {
 } from "firebase/firestore";
 import { Feather } from "@expo/vector-icons";
 import CircleLoader from "../ui/CircleLoader";
+import { Analytics } from "@/lib/analytics";
 
 type SignupModalProps = {
   openModal: boolean;
@@ -74,6 +75,7 @@ const SignupModal = ({ openModal, setOpenModal }: SignupModalProps) => {
         email,
         password,
       );
+      await Analytics.signUp();
 
       await setDoc(doc(db, "users", response.user.uid), {
         email,

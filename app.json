@@ -61,11 +61,14 @@
         "onesignal-expo-plugin",
         {
           "mode": "development",
-          "smallIcons": ["./assets/images/notification-icon.png"]
+          "smallIcons": [
+            "./assets/images/notification-icon.png"
+          ]
         }
       ],
       "expo-video",
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      "@react-native-firebase/app"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -258,8 +258,8 @@ export default function BottomBar() {
       <TabItem
         route="/Studio"
         label="Studio"
-        active={isActive("/Studio")}
-        onPress={() => router.push("/Studio")}
+        active={isActive("/MaintenanceScreen")}
+        onPress={() => router.push("/MaintenanceScreen")}
         icon={(color) => <Entypo name="camera" size={24} color={color} />}
       />
 

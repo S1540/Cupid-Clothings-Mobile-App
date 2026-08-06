@@ -290,12 +290,12 @@ function RecommendedProductsSection({
           <Text style={styles.subHeading}>{subHeading}</Text>
         </View>
 
-        {onViewAll && (
+        {/* {onViewAll && (
           <Pressable onPress={onViewAll} style={styles.viewAllBtn}>
             <Text style={styles.viewAllText}>View All</Text>
             <Feather name="chevron-right" size={16} color={PRIMARY} />
           </Pressable>
-        )}
+        )} */}
       </View>
 
       {/* Recently viewed card */}

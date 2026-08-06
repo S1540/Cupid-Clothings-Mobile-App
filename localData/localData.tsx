@@ -7,7 +7,7 @@ export type Subcategory = {
   image: string | null;
 };
 export type Category = { name: string; handle: string; image: string };
-export type BannerItem = { id: number; image: string };
+export type BannerItem = { id: number; image: string; handle?: string };
 export type Offer = { id: number; image: string };
 export type offerCollectionsType = {
   id: number;
@@ -54,21 +54,25 @@ export const BANNERS: Record<string, BannerItem[]> = {
       id: 1,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785568202/WhatsApp_Image_2026-08-01_at_12.37.18_PM_a0bvig.jpg",
+      handle: "women-plain-tshirts",
     },
     {
       id: 2,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785568202/WhatsApp_Image_2026-08-01_at_12.37.18_PM_2_h4hfm5.jpg",
+      handle: "girls-top-pajama-set",
     },
     {
       id: 3,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785496330/20_qu1dfq.png",
+      handle: "new-arrivals",
     },
     {
       id: 4,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785568202/WhatsApp_Image_2026-08-01_at_12.37.18_PM_1_nfs93b.jpg",
+      handle: "girls-top-pajama-set",
     },
   ],
   Men: [

@@ -12,6 +12,7 @@ import {
   Platform,
 } from "react-native";
 import CircleLoader from "../ui/CircleLoader";
+import { Analytics } from "@/lib/analytics";
 const LoginModel = ({
   openLogin,
   setOpenLogin,
@@ -42,7 +43,7 @@ const LoginModel = ({
         email.trim(),
         password,
       );
-
+      await Analytics.login();
       // Refresh latest user info
       await credential.user.reload();
 
