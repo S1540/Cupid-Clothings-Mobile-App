@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const judgeMeApi = require("../services/judgeMeService");
-const { auth, db } = require("../firebaseAdmin");
+const { getAuth } = require("firebase-admin/auth");
+const { app, db } = require("../firebaseAdmin");
 
 router.post("/reviews", async (req, res) => {
   try {
@@ -14,7 +15,7 @@ router.post("/reviews", async (req, res) => {
       return res.status(401).json({ success: false, error: "Please log in to write a review." });
     }
 
-    const decodedToken = await auth.verifyIdToken(idToken);
+    const decodedToken = await getAuth(app).verifyIdToken(idToken);
     const { productId, rating, title = "", body, name } = req.body;
     const normalizedRating = Number(rating);
     const normalizedName = String(name || "").trim();

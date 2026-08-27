@@ -1,6 +1,6 @@
 const express = require("express");
-const { db } = require("./firebaseAdmin");
 require("dotenv").config();
+const { db } = require("./firebaseAdmin");
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const judgeMeRoutes = require("./routes/judgeMeRoutes");
