@@ -1,36 +1,26 @@
 {
   "project_info": {
-    "project_number": "511392470551",
-    "project_id": "cupid-clothing",
-    "storage_bucket": "cupid-clothing.firebasestorage.app"
+    "project_number": "988358049466",
+    "project_id": "cupid-clothings",
+    "storage_bucket": "cupid-clothings.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:511392470551:android:e2b4abdb21ddc95b75ee52",
+        "mobilesdk_app_id": "1:988358049466:android:bc5ad4ed84d2e034df8c83",
         "android_client_info": {
           "package_name": "com.cupid.clothing"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "511392470551-fkng5ejpvnee2aqp33kj5ef7907b1qti.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyA1GJ8z7jyIPRdH9ZXMv16kff9vFOopqL4"
+          "current_key": "AIzaSyDaeA7uiHAjt29v4CaaXbcRMMXqy-OboDc"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "511392470551-fkng5ejpvnee2aqp33kj5ef7907b1qti.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }

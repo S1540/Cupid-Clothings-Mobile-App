@@ -230,7 +230,8 @@ const Account = () => {
                 ) : (
                   <View className="flex-row gap-3">
                     <Pressable
-                      onPress={() => router.push("/PhoneAuth")}
+                      // onPress={() => router.push("/PhoneAuth")}
+                      onPress={() => setOpenLogin(true)}
                       className="flex-row items-center justify-center border border-[#b7cbf7] rounded-[4px] py-2 px-5 active:bg-[#CAD9F7]"
                     >
                       <Text className="text-[#81a6f0] font-bold text-[13.5px]">
