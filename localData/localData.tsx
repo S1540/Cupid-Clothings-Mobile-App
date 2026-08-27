@@ -1,5 +1,5 @@
-import React from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import React from "react";
 
 export type Subcategory = {
   title: string;
@@ -80,11 +80,13 @@ export const BANNERS: Record<string, BannerItem[]> = {
       id: 1,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785503017/Curves_Deserve_2_rkcszr.png",
+      handle: "Men-streetwear",
     },
     {
       id: 2,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785568202/WhatsApp_Image_2026-08-01_at_12.37.17_PM_q3haza.jpg",
+      handle: "men-track-pants",
     },
   ],
   "Plus-Size": [
@@ -92,11 +94,13 @@ export const BANNERS: Record<string, BannerItem[]> = {
       id: 1,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785496327/21_ynrlfd.png",
+      handle: "women-plain-tshirts",
     },
     {
       id: 2,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/q_auto/f_auto/v1782218557/WhatsApp_Image_2026-06-23_at_6.06.37_PM_2_ny6bfq.jpg",
+      handle: "plus-size-long-tops",
     },
   ],
   "Best Sellers": [
@@ -104,11 +108,13 @@ export const BANNERS: Record<string, BannerItem[]> = {
       id: 1,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785411884/best_sellers_abapba.png",
+      handle: "bestseller",
     },
     {
       id: 2,
       image:
         "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785576868/WhatsApp_Image_2026-08-01_at_12.58.34_PM_u1zv8l.jpg",
+      handle: "bestseller",
     },
   ],
 };
@@ -117,13 +123,13 @@ export const OFFERS: Offer[] = [
   {
     id: 1,
     image:
-      "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782893616/2_jm4lib.png",
+      "https://res.cloudinary.com/drsoj4c5q/image/upload/v1787552036/Untitled_design_3_vxlgym.png",
   },
-  {
-    id: 2,
-    image:
-      "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782893616/1_uwz60k.png",
-  },
+  // {
+  //   id: 2,
+  //   image:
+  //     "https://res.cloudinary.com/drsoj4c5q/image/upload/v1782893616/1_uwz60k.png",
+  // },
 ];
 // Comfortable Section Data gender wise
 export const COMFORTABLE: ComfortableItem[] = [
@@ -285,7 +291,7 @@ export const offerCollections2: offerCollectionsType[] = [
   {
     id: 2,
     gender: "Women",
-    title: "All Under ₹495",
+    title: "Live ₹495",
     handle: "all-under-495",
     bg: "https://res.cloudinary.com/drsoj4c5q/image/upload/v1785241970/499_20260728_175738_0001_cqxyrv.png",
   },

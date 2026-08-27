@@ -7,13 +7,13 @@ import { Stack, useRouter } from "expo-router";
 import { signOut as firebaseSignOut } from "firebase/auth";
 import React, { useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StatusBar,
   Switch,
   Text,
   View,
-  Image,
 } from "react-native";
 import LoginModel from "../components/modal/LoginModel";
 
@@ -230,11 +230,11 @@ const Account = () => {
                 ) : (
                   <View className="flex-row gap-3">
                     <Pressable
-                      onPress={() => setOpenLogin(!openLogin)}
+                      onPress={() => router.push("/PhoneAuth")}
                       className="flex-row items-center justify-center border border-[#b7cbf7] rounded-[4px] py-2 px-5 active:bg-[#CAD9F7]"
                     >
                       <Text className="text-[#81a6f0] font-bold text-[13.5px]">
-                        Log In
+                        Login
                       </Text>
                     </Pressable>
                   </View>

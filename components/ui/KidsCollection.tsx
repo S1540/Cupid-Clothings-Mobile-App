@@ -168,8 +168,6 @@ export default function KidsCollections({
   data,
   cardWidth = 180,
   cardHeight = 320,
-  activeColor = "#F87387",
-  inactiveColor = "#ffffff",
   children,
 }: PromoHotDealsProps) {
   return (

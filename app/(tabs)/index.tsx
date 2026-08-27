@@ -14,6 +14,7 @@ import { Marquee } from "@animatereactnative/marquee";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
 import React, {
   memo,
   useCallback,
@@ -385,12 +386,14 @@ const HomeListHeader = React.memo(
             </LinearGradient>
             <KidsCollections
               backgroundImage={""}
-              data={kidsProducts!.map((item) => ({
-                id: item.id,
-                title: item.title,
-                handle: item.handle,
-                image: kidsImages[item.handle] ?? item.images[0]?.url,
-              }))}
+              data={kidsProducts!
+                .filter((item) => Boolean(kidsImages[item.handle]))
+                .map((item) => ({
+                  id: item.id,
+                  title: item.title,
+                  handle: item.handle,
+                  image: kidsImages[item.handle]!,
+                }))}
             />
           </>
         )}
@@ -671,9 +674,24 @@ export default function Index() {
   const offerPercentage = 15;
 
   useEffect(() => {
-    if (!auth.currentUser) {
-      setTimeout(() => setLoginRewardModal(true), 5000);
-    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        if (timer) clearTimeout(timer);
+        setLoginRewardModal(false);
+        return;
+      }
+
+      timer = setTimeout(() => {
+        if (!auth.currentUser) setLoginRewardModal(true);
+      }, 5000);
+    });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      unsubscribe();
+    };
   }, []);
 
   const handleClaim = () => {
