@@ -50,6 +50,12 @@ export interface Order {
 }
 
 interface OrderStore {
+  retryVersion: number;
+  retry: () => void;
+  ownerUid: string | null;
+  error: string | null;
+  startSession: (uid: string | null) => void;
+  setError: (message: string) => void;
   orders: Order[];
   ordersLoaded: boolean;
   setOrders: (orders: Order[]) => void;
@@ -58,6 +64,12 @@ interface OrderStore {
 }
 
 export const useOrderStore = create<OrderStore>((set) => ({
+  retryVersion: 0,
+  retry: () => set(state => ({ retryVersion: state.retryVersion + 1 })),
+  ownerUid: null,
+  error: null,
+  startSession: (uid) => set({ ownerUid: uid, orders: [], ordersLoaded: !uid, error: null }),
+  setError: (message) => set({ error: message, ordersLoaded: true }),
   orders: [],
   ordersLoaded: false,
 
@@ -65,6 +77,7 @@ export const useOrderStore = create<OrderStore>((set) => ({
     set({
       orders,
       ordersLoaded: true,
+      error: null,
     }),
 
   updateOrder: (updatedOrder) =>
@@ -77,5 +90,8 @@ export const useOrderStore = create<OrderStore>((set) => ({
   clearOrders: () =>
     set({
       orders: [],
+      ordersLoaded: false,
+      ownerUid: null,
+      error: null,
     }),
 }));

@@ -4,7 +4,14 @@ export interface UserData {
   uid: string;
   userName: string;
   email: string;
-  number: string;
+  number?: string;
+  phone?: string;
+  emailVerified?: boolean;
+  cupidCoins?: number;
+  totalEarnedCoins?: number;
+  onboardingState?: "pending" | "complete";
+  updatedAt?: unknown;
+  shopifyCustomerId?: string;
   referralCode: string;
   referredBy?: string | null;
   totalReferrals: number;

@@ -1,9 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { onAuthStateChanged } from "firebase/auth";
-import { db, auth } from "@/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
+import { useUserStore } from "@/store/userStore";
 import React, {
   useCallback,
   useEffect,
@@ -528,32 +526,20 @@ const HowItWorks = React.memo(() => (
 
 // ─── MAIN SCREEN ─────────────────────────────────────────────
 export default function ReferEarn() {
-  const [referralCode, setReferralCode] = useState("");
+  const referralCode = useUserStore(state => state.user?.referralCode ?? "");
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
-
-      const userSnap = await getDoc(doc(db, "users", user.uid));
-      if (userSnap.exists()) {
-        setReferralCode(userSnap.data().referralCode);
-        console.log("REFERRAL CODE:", userSnap.data().referralCode);
-      }
-    });
-
-    return unsubscribe;
-  }, []);
 
   const handleInvite = useCallback(async () => {
+    if (!referralCode) return;
     try {
       await Share.share({
         message: `Hey! Use my Cupid referral code ${referralCode} and get ₹121 off on your first order 🎀 Download now: https://cupidclothings.com`,
         title: "Invite to Cupid",
       });
     } catch (_) {}
-  }, []);
+  }, [referralCode]);
 
   // Render all content as FlatList sections for smooth scroll
   const sections = useMemo(

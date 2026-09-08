@@ -24,6 +24,7 @@ import { useRouter } from "expo-router";
 import { useCartStore } from "@/store/cartStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "@/firebaseConfig";
+import { useAuthStore } from "@/store/authStore";
 import { useLocalSearchParams } from "expo-router";
 import {
   doc,
@@ -34,7 +35,7 @@ import {
   getDocs,
   addDoc,
   getDoc,
-} from "firebase/firestore";
+} from "@react-native-firebase/firestore";
 import CircleLoader from "@/components/ui/CircleLoader";
 
 // ─── Tokens -----------------------------------
@@ -353,7 +354,10 @@ const DeliveryAddress = () => {
     return Object.keys(e).length === 0;
   };
   // fetch data (if any edit mode on)
+  const sessionUid = useAuthStore(state => state.user?.uid ?? null);
   useEffect(() => {
+    let active = true;
+    setFullName(""); setMobile(""); setAltMobile(""); setFlat(""); setArea(""); setLandmark("");
     const loadAddress = async () => {
       try {
         if (!addressId) return;
@@ -368,6 +372,7 @@ const DeliveryAddress = () => {
         );
 
         const snap = await getDoc(addressRef);
+        if (!active || auth.currentUser?.uid !== user.uid) return;
         if (!snap.exists()) return;
         const data = snap.data();
 
@@ -388,7 +393,8 @@ const DeliveryAddress = () => {
     };
 
     loadAddress();
-  }, [addressId]);
+    return () => { active = false; };
+  }, [addressId, sessionUid]);
 
   // Save Data To DB firebase
   const saveAddress = async () => {
@@ -396,9 +402,10 @@ const DeliveryAddress = () => {
     setDetecting(true);
     try {
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user || user.uid !== sessionUid) return;
       const addressRef = collection(db, "users", user.uid, "address");
       const snapshot = await getDocs(addressRef);
+      if (auth.currentUser?.uid !== user.uid) return;
       if (isDefault) {
         for (const docSnap of snapshot.docs) {
           await updateDoc(docSnap.ref, {

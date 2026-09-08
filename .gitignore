@@ -9,6 +9,11 @@ dist/
 web-build/
 expo-env.d.ts
 .env
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/serviceAccountKey.json
+auth-migration-private-reports/
 # Native
 .kotlin/
 *.orig.*
@@ -23,6 +28,8 @@ expo-env.d.ts
 
 # debug
 npm-debug.*
+firebase-debug.log
+firestore-debug.log
 yarn-debug.*
 yarn-error.*
 

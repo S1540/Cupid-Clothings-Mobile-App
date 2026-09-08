@@ -1,5 +1,12 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { Stack, useRouter } from "expo-router";
+import { apiRequest, ApiError } from "@/lib/api";
+import { signOutAllSessions } from "@/lib/auth";
+import { Analytics } from "@/lib/analytics";
+import { useAuthStore } from "@/store/authStore";
+import { useFocusEffect } from "expo-router";
+import { getAuth } from "@react-native-firebase/auth";
+import { Redirect, Stack, useRouter } from "expo-router";
+import { doc, getDoc, updateDoc } from "@react-native-firebase/firestore";
 import React, {
   memo,
   useCallback,
@@ -23,12 +30,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Svg, { Circle } from "react-native-svg"; // used for the ring progress around the avatar
-import { updateDoc, doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../firebaseConfig";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { OneSignal } from "react-native-onesignal";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import Svg, { Circle } from "react-native-svg"; // used for the ring progress around the avatar
+import { db } from "../firebaseConfig";
 
 const PRIMARY = "#759EF0";
 const PROGRESS_PINK = "#F87387";
@@ -860,6 +864,8 @@ const ProfileSummaryView = memo(
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 
 export default function EditProfile() {
+  const sessionUid = useAuthStore(state => state.user?.uid ?? null);
+  const sessionReady = useAuthStore(state => state.ready);
   const router = useRouter();
   const [form, setForm] = useState<ProfileFormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -876,36 +882,44 @@ export default function EditProfile() {
     }).start();
   }, []);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setForm(INITIAL_FORM);
+    setLoading(true);
     const fetchProfile = async () => {
       try {
-        if (!auth.currentUser) {
+        const firebaseUser = getAuth().currentUser;
+        if (!firebaseUser) {
           setLoading(false);
           return;
         }
-        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+
+        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+        if (!active || getAuth().currentUser?.uid !== firebaseUser.uid) return;
         if (snap.exists()) {
           const data = snap.data() as Partial<ProfileFormState>;
           setForm((prev) => ({
             ...prev,
             ...data,
-            email: auth.currentUser?.email ?? data.email ?? prev.email,
-            phone: (data.phone ?? "").toString().replace("+91", ""),
+            fullName: (snap.data()?.userName ?? data.fullName ?? "").toString(),
+            email: data.email ?? "",
+            phone: firebaseUser.phoneNumber?.replace(/^\+91/, "") ?? "",
           }));
         } else {
           setForm((prev) => ({
             ...prev,
-            email: auth.currentUser?.email ?? prev.email,
+            email: firebaseUser.email ?? prev.email,
           }));
         }
       } catch (e) {
-        console.log("Fetch profile error:", e);
+        // Do not log profile data or authentication details.
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchProfile();
-  }, []);
+    return () => { active = false; };
+  }, [sessionUid]));
 
   const completion = useMemo(() => {
     const filled = COMPLETION_FIELDS.filter(
@@ -932,9 +946,7 @@ export default function EditProfile() {
 
     if (!form.fullName.trim()) next.fullName = "Full name is required";
 
-    if (!form.phone.trim()) next.phone = "Mobile number is required";
-    else if (!/^[6-9]\d{9}$/.test(form.phone.trim()))
-      next.phone = "Enter a valid 10-digit mobile number";
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = "Enter a valid email or leave it empty";
 
     if (!form.gender) next.gender = "Please select your gender";
 
@@ -950,11 +962,15 @@ export default function EditProfile() {
 
     setSaving(true);
     try {
-      if (!auth.currentUser) return;
-      const userRef = doc(db, "users", auth.currentUser.uid);
-      await updateDoc(userRef, {
-        fullName: form.fullName,
-        phone: `+91${form.phone}`,
+      const firebaseUser = getAuth().currentUser;
+
+      if (!firebaseUser || firebaseUser.uid !== sessionUid) {
+        Alert.alert("Login required", "Please login again and try.");
+        return;
+      }
+      const result = await apiRequest<{ emailAdded: boolean }>("/api/users/me", { method: "PATCH", body: JSON.stringify({
+        userName: form.fullName,
+        email: form.email.trim(),
         gender: form.gender,
         dob: form.dob,
         anniversary: form.anniversary,
@@ -968,18 +984,15 @@ export default function EditProfile() {
         orderUpdates: form.orderUpdates,
         whatsappUpdates: form.whatsappUpdates,
         emailOffers: form.emailOffers,
-      });
-      OneSignal.User.addTag("gender", form.gender);
-      OneSignal.User.addTag("city", form.city);
-      OneSignal.User.addTag("category", form.preferredCategory);
-      OneSignal.User.addTag("language", form.language);
+      }) });
+      if (result.emailAdded) void Analytics.emailAdded();
       setIsEditing(false);
     } catch (e) {
       Alert.alert("Something went wrong", "Please try again.");
     } finally {
       setSaving(false);
     }
-  }, [form, validateForm]);
+  }, [form, validateForm, sessionUid]);
 
   const pickImage = useCallback(() => {
     Alert.alert(
@@ -990,34 +1003,21 @@ export default function EditProfile() {
   // Delete user
   const deleteAccount = async () => {
     try {
-      const token = await auth.currentUser?.getIdToken();
-      console.log("Token:", token);
-
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/users/delete-account`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert("Success", "Your account has been deleted.");
-
-        await AsyncStorage.clear();
-        await auth.signOut();
-
-        router.replace("/");
-      } else {
-        Alert.alert("Error", data.message);
+      const firebaseUser = getAuth().currentUser;
+      if (!firebaseUser || firebaseUser.uid !== sessionUid) {
+        Alert.alert("Error", "User is not logged in.");
+        return;
       }
+
+      await apiRequest("/api/users/delete-account", { method: "DELETE" });
+      void Analytics.deleteAccount();
+      await signOutAllSessions();
+      Alert.alert("Success", "Your account has been deleted.");
+      router.replace("/");
     } catch (error) {
-      console.log(error);
-      Alert.alert("Error", "Unable to delete account.");
+      if (error instanceof ApiError && error.code === "RECENT_AUTH_REQUIRED") {
+        router.push({ pathname: "/PhoneAuth", params: { mode: "reauth", returnTo: "/EditProfile" } });
+      } else Alert.alert("Deletion not completed", error instanceof ApiError ? error.message : "Please retry to finish deleting your account.");
     }
   };
 
@@ -1038,6 +1038,9 @@ export default function EditProfile() {
       ],
     );
   };
+
+  if (!sessionReady) return <View style={S.loadingWrap}><ActivityIndicator color={PROGRESS_PINK} /></View>;
+  if (!sessionUid) return <Redirect href={{ pathname: "/PhoneAuth", params: { returnTo: "/EditProfile" } }} />;
 
   return (
     <>
@@ -1153,18 +1156,21 @@ export default function EditProfile() {
                   />
 
                   <FormInput
-                    label="Email"
+                    label="Contact email (optional)"
                     icon="mail"
-                    editable={false}
                     value={form.email}
-                    placeholder="Add during signup"
+                    onChangeText={(value) => handleChange("email", value)}
+                    keyboardType="email-address"
+                    placeholder="For receipts and order support"
+                    error={errors.email}
                   />
 
                   <FormInput
-                    label="Mobile Number"
+                    label="Verified mobile number"
                     required
                     icon="phone"
                     value={form.phone}
+                    editable={false}
                     onChangeText={(t) =>
                       handleChange("phone", t.replace(/[^0-9]/g, ""))
                     }
@@ -1173,6 +1179,7 @@ export default function EditProfile() {
                     maxLength={10}
                     error={errors.phone}
                   />
+                  <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/PhoneAuth", params: { mode: getAuth().currentUser?.phoneNumber ? "change" : "link", returnTo: "/EditProfile" } })} style={{ paddingVertical: 14 }}><Text style={{ color: "#A82D49", fontWeight: "600" }}>{getAuth().currentUser?.phoneNumber ? "Change verified number" : "Verify and link your number"}</Text></Pressable>
 
                   <ChipGroup
                     label="Gender"

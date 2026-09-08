@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isCurrentResult } from "@/lib/sessionScope";
 
 /**
  * The only cart-line shape used by the app. `cartKey` is derived from the
@@ -42,11 +43,13 @@ export const useCartStore = create<CartStore>((set, get) => ({
   cartItems: [],
   cartCount: 0,
 
-  setCartItems: (items) =>
+  setCartItems: (items) => {
+    if (!isCurrentResult(items)) return;
     set({
       cartItems: items,
       cartCount: getCartQuantity(items),
-    }),
+    });
+  },
 
   addCartItem: (item) => {
     const existing = get().cartItems;

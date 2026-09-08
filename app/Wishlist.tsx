@@ -8,7 +8,8 @@ import {
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
-import { getAuth } from "firebase/auth";
+import { getAuth } from "@react-native-firebase/auth";
+import { useAuthStore } from "@/store/authStore";
 import {
   collection,
   deleteDoc,
@@ -16,7 +17,7 @@ import {
   onSnapshot,
   orderBy,
   query,
-} from "firebase/firestore";
+} from "@react-native-firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -452,9 +453,11 @@ export default function WishlistScreen() {
   const setCartItems = useCartStore((s) => s.setCartItems);
   const insets = useSafeAreaInsets();
   const auth = getAuth();
-  const uid = auth.currentUser?.uid;
+  const uid = useAuthStore(state => state.user?.uid);
 
   useEffect(() => {
+    let active = true;
+    setItems([]);
     if (!uid) {
       setLoading(false);
       return;
@@ -468,6 +471,7 @@ export default function WishlistScreen() {
     const unsub = onSnapshot(
       q,
       (snap) => {
+        if (!active || auth.currentUser?.uid !== uid) return;
         const data: WishlistItem[] = snap.docs.map((d) => ({
           id: d.id,
           ...(d.data() as Omit<WishlistItem, "id">),
@@ -483,7 +487,7 @@ export default function WishlistScreen() {
       },
     );
 
-    return () => unsub();
+    return () => { active = false; unsub(); };
   }, [uid]);
 
   const handleRemove = useCallback(

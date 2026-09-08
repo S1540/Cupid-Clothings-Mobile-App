@@ -1,11 +1,10 @@
 // app/(tabs)/Orders.tsx
 import { OrdersSkeleton } from "@/components/ui/OrderSkeleton";
-import { auth, db } from "@/firebaseConfig";
+import { useAuthStore } from "@/store/authStore";
 import { Order, useOrderStore } from "@/store/orderStore";
+import { useUserStore } from "@/store/userStore";
 import { EvilIcons, Ionicons } from "@expo/vector-icons";
-import { Stack, useRouter } from "expo-router";
-import { collection, onSnapshot } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
   Image,
   Pressable,
@@ -36,7 +35,7 @@ const OrderRow = ({ order, onPress }: { order: any; onPress: () => void }) => {
     const tracking = order.trackingStatus?.toUpperCase() || "";
     const status = order.status?.toUpperCase() || "";
 
-    if (tracking.includes("DELIVERED")) return "delivered";
+    if (tracking.trim() === "DELIVERED") return "delivered";
     if (
       tracking.includes("OUT FOR DELIVERY") ||
       tracking.includes("SHIPPED") ||
@@ -116,7 +115,7 @@ const OrderRow = ({ order, onPress }: { order: any; onPress: () => void }) => {
             }}
           />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: cfg.color }}>
-            {cfg.label}
+            {order.trackingStatus || cfg.label}
           </Text>
           <Text style={{ fontSize: 11.5, color: "#aaa" }}>
             {order.createdAt?.toDate?.()?.toDateString?.() || ""}
@@ -209,37 +208,27 @@ const useHeaderOptions = (router: ReturnType<typeof useRouter>) => ({
 
 //-------------------------- Main Screen ---------------------------------------
 export default function OrdersScreen() {
-  const [loading, setLoading] = useState(true);
+  const { checkoutReturned } = useLocalSearchParams<{ checkoutReturned?: string }>();
+  const loading = useOrderStore((state) => !state.ordersLoaded);
+  const orderError = useOrderStore((state) => state.error);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const orders = useOrderStore((state) => state.orders);
-  const user = auth.currentUser;
+  const user = useAuthStore((state) => state.user);
+  const contactEmail = useUserStore((state) => state.user?.email);
   const headerOptions = useHeaderOptions(router);
-
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const q = collection(db, "users", user.uid, "orders");
-    const unsub = onSnapshot(q, (snapshot) => {
-      const orders: Order[] = snapshot.docs.map((doc) => ({
-        ...(doc.data() as Order),
-        orderId: doc.id,
-      }));
-      useOrderStore.getState().setOrders(orders);
-      setLoading(false);
-    });
-
-    return unsub;
-  }, []);
 
   // ─── Body ─────────────────────────────────────────────────────────────────
   // Determined separately so Stack.Screen is always rendered at the top of
   // the return statement without duplication.
   const renderBody = () => {
+    if (orderError)
+      return (
+        <View style={{ padding: 24 }}>
+          <Text accessibilityRole="alert">{orderError}</Text>
+          <Pressable accessibilityRole="button" style={{ paddingVertical: 16 }} onPress={() => useOrderStore.getState().retry()}><Text style={{ color: "#A82D49" }}>Retry</Text></Pressable>
+        </View>
+      );
     // Loading state — skeleton fills the body below the fixed header
     if (loading) {
       return (
@@ -286,7 +275,7 @@ export default function OrdersScreen() {
           </Text>
 
           <TouchableOpacity
-            onPress={() => router.push("/Account")}
+            onPress={() => router.push("/PhoneAuth")}
             style={{
               marginTop: 24,
               backgroundColor: "#F87387",
@@ -303,7 +292,28 @@ export default function OrdersScreen() {
 
     // Empty orders state
     if (orders.length === 0) {
-      return <EmptyOrdersState onShopPress={() => router.push("./")} />;
+      return (
+        <View style={{ flex: 1 }}>
+          <EmptyOrdersState onShopPress={() => router.push("./")} />
+          <View style={{ padding: 24 }}>
+            <Text>
+              {contactEmail
+                ? "Missing an earlier order? Contact support to securely connect your existing account."
+                : "Orders placed through this app appear here without an email. You can add an optional email for receipts."}
+            </Text>
+            <Pressable
+              style={{ paddingVertical: 16 }}
+              onPress={() =>
+                router.push(contactEmail ? "/Helpcenter" : "/EditProfile")
+              }
+            >
+              <Text style={{ color: "#A82D49" }}>
+                {contactEmail ? "Get order help" : "Add contact email"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      );
     }
 
     // Orders list
@@ -334,6 +344,9 @@ export default function OrdersScreen() {
   return (
     <>
       <Stack.Screen options={headerOptions} />
+      {user && checkoutReturned === "1" && <View style={{ padding: 16, backgroundColor: "#FFF7F8" }}>
+        <Text>Your order may take a moment to appear after checkout. This page updates automatically when it arrives.</Text>
+      </View>}
       {renderBody()}
     </>
   );

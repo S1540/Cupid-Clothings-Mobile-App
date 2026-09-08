@@ -5,32 +5,29 @@ const {
   updateTrackingStatus,
 } = require("../services/orderService");
 const { fetchRecommendedProducts } = require("../services/shopifyService");
+const { verifyShopifyWebhook, verifyShiprocketWebhook } = require("../middleware/verifyWebhooks");
 
-router.post("/shopify/order-created", async (req, res) => {
+router.post("/shopify/order-created", verifyShopifyWebhook, async (req, res) => {
   try {
     const order = req.body;
     await saveOrderToFirebase(order);
     // res.send("OK");
     res.status(200).send("OK");
   } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      error: error.message,
+    res.status(error.status || 500).json({
+      error: "Order update could not be processed.",
     });
   }
 });
 
-router.post("/tracking-webhook", async (req, res) => {
+router.post("/tracking-webhook", verifyShiprocketWebhook, async (req, res) => {
   try {
-    console.log("=== SHIPROCKET WEBHOOK ===");
-    console.log(JSON.stringify(req.body, null, 2));
 
     await updateTrackingStatus(req.body);
 
     res.status(200).send("OK");
   } catch (err) {
-    console.error(err);
-    res.status(500).send("ERROR");
+    res.status(err.status || 500).send("ERROR");
   }
 });
 // router.get("/test-delivered", async (req, res) => {

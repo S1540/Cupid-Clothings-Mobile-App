@@ -92,6 +92,7 @@ export default {
       "expo-speech-recognition",
 
       "@react-native-firebase/app",
+      "@react-native-firebase/auth",
 
       [
         "@rnmapbox/maps",

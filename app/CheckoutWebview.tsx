@@ -1,16 +1,21 @@
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { View, Pressable, Text, ActivityIndicator } from "react-native";
 import { WebView } from "react-native-webview";
 import { Feather } from "@expo/vector-icons";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { recordConfirmedPurchase } from "@/lib/checkoutAnalytics";
+import { useAuthStore } from "@/store/authStore";
 
 export default function CheckoutWebview() {
-  const { url } = useLocalSearchParams();
+  const { url, cartId } = useLocalSearchParams();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const finished = useRef(false);
+  const uid = useAuthStore(state => state.user?.uid);
+  const checkoutUid = useRef(uid);
 
   const handleNavigation = (currentUrl: string) => {
-    console.log("WEBVIEW URL:", currentUrl);
+    if (finished.current) return;
 
     // Shopify Order Success
     if (
@@ -18,10 +23,11 @@ export default function CheckoutWebview() {
       currentUrl.includes("/thank-you") ||
       currentUrl.includes("/orders/")
     ) {
-      console.log("ORDER SUCCESS");
+      finished.current = true;
+      if (typeof cartId === "string") void recordConfirmedPurchase(cartId);
 
       router.dismissAll();
-      router.replace("/");
+      router.replace({ pathname: "/Orders", params: { checkoutReturned: "1" } });
 
       return;
     }
@@ -31,7 +37,6 @@ export default function CheckoutWebview() {
       currentUrl === "https://cupidclothings.com/" ||
       currentUrl === "https://cupidclothings.com"
     ) {
-      console.log("CONTINUE SHOPPING");
 
       router.dismissAll();
       router.replace("/");
@@ -39,6 +44,8 @@ export default function CheckoutWebview() {
       return;
     }
   };
+
+  if (!uid || uid !== checkoutUid.current) return <Redirect href="/Cart" />;
 
   return (
     <>

@@ -3,19 +3,15 @@ const router = express.Router();
 const judgeMeApi = require("../services/judgeMeService");
 const { getAuth } = require("firebase-admin/auth");
 const { app, db } = require("../firebaseAdmin");
+const { verifyFirebaseToken } = require("../middleware/verifyFirebaseToken");
+const { userRequestLimit } = require("../middleware/requestLimit");
 
-router.post("/reviews", async (req, res) => {
+router.post("/reviews", verifyFirebaseToken, userRequestLimit, async (req, res) => {
   try {
-    const authorization = req.headers.authorization || "";
-    const idToken = authorization.startsWith("Bearer ")
-      ? authorization.slice(7)
-      : null;
-
-    if (!idToken) {
-      return res.status(401).json({ success: false, error: "Please log in to write a review." });
-    }
-
-    const decodedToken = await getAuth(app).verifyIdToken(idToken);
+    const decodedToken = req.user;
+    const profile = await db.collection("users").doc(decodedToken.uid).get();
+    if (profile.data()?.deletionState) return res.status(409).json({ code: "ACCOUNT_DELETING" });
+    const email = profile.data()?.email;
     const { productId, rating, title = "", body, name } = req.body;
     const normalizedRating = Number(rating);
     const normalizedName = String(name || "").trim();
@@ -28,8 +24,8 @@ router.post("/reviews", async (req, res) => {
       });
     }
 
-    if (!decodedToken.email) {
-      return res.status(400).json({ success: false, error: "Your account needs an email address to submit a review." });
+    if (!email) {
+      return res.status(400).json({ success: false, code: "EMAIL_REQUIRED", error: "Add a contact email in your profile to submit a review." });
     }
 
     const submissionRef = db
@@ -46,7 +42,7 @@ router.post("/reviews", async (req, res) => {
       platform: "shopify",
       id: String(productId),
       name: normalizedName.slice(0, 80),
-      email: decodedToken.email,
+      email,
       rating: normalizedRating,
       title: String(title).trim().slice(0, 120),
       body: normalizedBody.slice(0, 2000),
@@ -74,13 +70,12 @@ router.post("/reviews", async (req, res) => {
     });
   } catch (error) {
     const status = error.response?.status;
-    const message = error.response?.data?.error || error.response?.data?.message || "We couldn't submit your review. Please try again.";
-    console.error("Judge.me review submission error:", error.response?.data || error.message);
+    const message = "We couldn't submit your review. Please try again.";
     return res.status(status && status < 500 ? status : 500).json({ success: false, error: message });
   }
 });
 
-router.get("/sync", async (req, res) => {
+router.get("/sync", verifyFirebaseToken, (req, res, next) => req.user.admin === true ? next() : res.sendStatus(403), async (req, res) => {
   try {
     let currentPage = 1;
     const perPage = 100;

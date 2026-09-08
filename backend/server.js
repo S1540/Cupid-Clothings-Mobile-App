@@ -8,11 +8,18 @@ const userRoutes = require("./routes/userRoutes");
 const { saveOrderToFirebase } = require("./services/orderService");
 const app = express();
 
-app.use(express.json());
+// Identifies the deployed implementation without disclosing settings or credentials.
+// Liveness only: this does not certify provider configuration or checkout readiness.
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", implementation: "otp-checkout-v1" });
+});
+
+app.use(express.json({ limit: "2mb", verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/judgeme", judgeMeRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/checkout", require("./routes/checkoutRoutes"));
 // Test Webhook Shiprocket
 // app.post("/api/tracking-webhook", async (req, res) => {
 //   const token = req.headers["x-api-key"];
@@ -33,6 +40,7 @@ app.get("/api/orders/shopify/order-created", (req, res) => {
   res.send("Webhook Route Working");
 });
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+const port = Number(process.env.PORT || 3000);
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });

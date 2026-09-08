@@ -7,8 +7,9 @@ import {
   getDocs,
   writeBatch,
   setDoc,
-} from "firebase/firestore";
-import type { User } from "firebase/auth";
+} from "@react-native-firebase/firestore";
+import type { User } from "@react-native-firebase/auth";
+import { scopeResult } from "./sessionScope";
 import {
   CART_STORAGE_KEY,
   createCartKey,
@@ -213,7 +214,7 @@ export async function loadCart(user: User | null): Promise<CartItem[]> {
     await migrateGuestCart(documents);
   }
 
-  return documents.map((document) => document.item);
+  return scopeResult(documents.map((document) => document.item), user?.uid ?? null);
 }
 
 async function saveCartLine(user: User | null, item: CartItem): Promise<void> {
@@ -245,11 +246,11 @@ export async function addCartLine(
     : item;
 
   await saveCartLine(user, line);
-  return current
+  return scopeResult(current
     ? existing.map((existingLine) =>
         existingLine.cartKey === line.cartKey ? line : existingLine,
       )
-    : [line, ...existing];
+    : [line, ...existing], user?.uid ?? null);
 }
 
 export async function setCartLineQuantity(
@@ -265,9 +266,9 @@ export async function setCartLineQuantity(
 
   const updatedLine = { ...line, quantity: asPositiveInteger(quantity) };
   await saveCartLine(user, updatedLine);
-  return existing.map((item) =>
+  return scopeResult(existing.map((item) =>
     item.cartKey === cartKey ? updatedLine : item,
-  );
+  ), user?.uid ?? null);
 }
 
 export async function removeCartLine(
@@ -286,7 +287,7 @@ export async function removeCartLine(
     await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updated));
   }
 
-  return updated;
+  return scopeResult(updated, user?.uid ?? null);
 }
 
 export async function clearCart(user: User | null): Promise<void> {

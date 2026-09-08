@@ -112,7 +112,19 @@ export default function SelectLocation() {
             compassEnabled={false}
           >
             <Mapbox.Camera zoomLevel={15} centerCoordinate={coords} />
-            <Mapbox.PointAnnotation id="current-location" coordinate={coords} />
+            <Mapbox.PointAnnotation id="current-location" coordinate={coords}>
+              <View
+                collapsable={false}
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: "#F87387",
+                  borderWidth: 3,
+                  borderColor: "#fff",
+                }}
+              />
+            </Mapbox.PointAnnotation>
           </Mapbox.MapView>
         ) : (
           <View

@@ -9,12 +9,12 @@ import KidsCollections from "@/components/ui/KidsCollection";
 import ProductCard from "@/components/ui/ProductCrad";
 import PromoHotDeals from "@/components/ui/PromoHotDeals";
 import RecommendedProductsSection from "@/components/ui/RecommendedProductsSection";
-import { auth } from "@/firebaseConfig";
+// import { auth } from "@/firebaseConfig";
 import { Marquee } from "@animatereactnative/marquee";
+import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
 import React, {
   memo,
   useCallback,
@@ -676,7 +676,7 @@ export default function Index() {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(getAuth(), (user) => {
       if (user) {
         if (timer) clearTimeout(timer);
         setLoginRewardModal(false);
@@ -684,7 +684,7 @@ export default function Index() {
       }
 
       timer = setTimeout(() => {
-        if (!auth.currentUser) setLoginRewardModal(true);
+        if (!getAuth().currentUser) setLoginRewardModal(true);
       }, 5000);
     });
 

@@ -25,10 +25,11 @@ import { auth, db } from "@/firebaseConfig";
 import { addCartLine, loadCart } from "@/lib/cart";
 import { createCartKey, useCartStore } from "@/store/cartStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, setDoc } from "@react-native-firebase/firestore";
 
 // ── Extracted components ──────────────────────────────────────────────────────
 import { Analytics } from "@/lib/analytics";
+import { useAuthStore } from "@/store/authStore";
 import ProductBottomSection from "../../components/product/Productbottomsection";
 import ProductDetailsSection from "../../components/product/Productdetailssection";
 import ProductGallery from "../../components/product/ProductGallery";
@@ -87,6 +88,7 @@ export default function ProductPage() {
   const [loadingCart, setLoadingCart] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [wishlist, setWishlist] = useState(false);
+  const sessionUid = useAuthStore(state => state.user?.uid ?? null);
   const [viewedProducts, setViewedProducts] = useState<Product[]>([]);
   const [exploreProducts, setExploreProducts] = useState<Product[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<
@@ -149,12 +151,12 @@ export default function ProductPage() {
   const checkWishlistStatus = async () => {
     try {
       const user = auth.currentUser;
-      if (!user || !product) return;
+      if (!user || !product) { setWishlist(false); return; }
       const cleanId = product.id.split("/").pop();
       const snap = await getDoc(
         doc(db, "users", user.uid, "wishlist", cleanId as string),
       );
-      setWishlist(snap.exists());
+      if (auth.currentUser?.uid === user.uid) setWishlist(snap.exists());
     } catch (error) {
       console.log(error);
     }
@@ -164,7 +166,7 @@ export default function ProductPage() {
     if (product) {
       checkWishlistStatus();
     }
-  }, [product]);
+  }, [product, sessionUid]);
 
   const toggleWishlist = async () => {
     try {

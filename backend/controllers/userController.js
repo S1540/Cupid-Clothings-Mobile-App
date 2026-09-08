@@ -9,11 +9,11 @@ const deleteAccount = async (req, res) => {
       message: "Account deleted successfully",
     });
   } catch (err) {
-    console.log(err);
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      code: "DELETE_INCOMPLETE",
+      message: "Account deletion could not finish. Please retry to complete it.",
     });
   }
 };

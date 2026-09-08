@@ -1,5 +1,6 @@
 import CartSkeleton from "@/components/CartSkeleton";
 import LoginModel from "@/components/modal/LoginModel";
+import { useAuthStore } from "@/store/authStore";
 import SignUpModel from "@/components/modal/SignUpModel";
 import SuccessToast from "@/components/SuccessToast";
 import { auth, db } from "@/firebaseConfig";
@@ -14,7 +15,7 @@ import {
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import { collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, setDoc } from "@react-native-firebase/firestore";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -52,6 +53,9 @@ const C = {
 const TABLET_BREAKPOINT = 768;
 const TABLET_MAX_CONTENT_WIDTH = 600;
 const SMALL_SCREEN_BREAKPOINT = 340;
+// Keep the quantity stepper and the two icon actions readable on phones where
+// the product info column cannot fit all three controls side-by-side.
+const COMPACT_ACTIONS_BREAKPOINT = 400;
 const FONT_SCALE_TIGHT = 1.3;
 const FONT_SCALE_NORMAL = 1.6;
 
@@ -185,6 +189,7 @@ const S = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: C.white,
     minHeight: 44,
+    minWidth: 96,
   },
   actionBtn: {
     flexDirection: "row",
@@ -194,6 +199,7 @@ const S = StyleSheet.create({
     // UI: each button now grows to share the row equally and never
     // compresses its label.
     flex: 1,
+    minWidth: 47,
     paddingHorizontal: 10,
     paddingVertical: 10,
   },
@@ -565,6 +571,7 @@ const CartItemRow = React.memo(
     const coins = Math.floor(Number(item.price) * 0.04);
     const { width } = useWindowDimensions();
     const isSmallScreen = width <= SMALL_SCREEN_BREAKPOINT;
+    const isCompactActions = width <= COMPACT_ACTIONS_BREAKPOINT;
     // RESPONSIVE: caps the row's content width and centers it on tablets,
     // mirroring the same pattern already used for the checkout bar, so the
     // row doesn't stretch into an oversized, awkward layout on large screens.
@@ -686,14 +693,14 @@ const CartItemRow = React.memo(
             <View
               style={[
                 S.actionsRow,
-                isSmallScreen && {
+                isCompactActions && {
                   flexDirection: "column",
                   alignItems: "stretch",
                 },
               ]}
             >
               <View
-                style={isSmallScreen ? { alignSelf: "flex-start" } : undefined}
+                style={isCompactActions ? { alignSelf: "flex-start" } : undefined}
               >
                 <QtyStepper
                   qty={item.quantity}
@@ -706,7 +713,7 @@ const CartItemRow = React.memo(
               <View
                 style={[
                   S.actionBtns,
-                  isSmallScreen
+                  isCompactActions
                     ? { width: "100%" }
                     : { flex: 1, marginLeft: 8 },
                 ]}
@@ -1026,6 +1033,7 @@ const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
 
 // ─── MAIN SCREEN ──────────────────────────────────────────────
 export default function Cart() {
+  const sessionUid = useAuthStore(state => state.user?.uid ?? null);
   const router = useRouter();
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pinCode, setPinCode] = useState("");
@@ -1077,7 +1085,9 @@ export default function Cart() {
     (async () => {
       try {
         await new Promise((r) => setTimeout(r, 0));
-        const items = await loadCart(auth.currentUser);
+        const user = auth.currentUser;
+        const items = await loadCart(user);
+        if ((auth.currentUser?.uid ?? null) !== (user?.uid ?? null)) return;
         setCartItems(items);
         setLoading(false);
       } catch (e) {
@@ -1085,7 +1095,7 @@ export default function Cart() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [sessionUid, setCartItems]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -1095,9 +1105,10 @@ export default function Cart() {
     }
 
     return onSnapshot(collection(db, "users", user.uid, "wishlist"), (snapshot) => {
+      if (auth.currentUser?.uid !== user.uid) return;
       setWishlistProductIds(new Set(snapshot.docs.map((wishlistItem) => wishlistItem.id)));
     });
-  }, []);
+  }, [sessionUid]);
 
   const remove = useCallback(
     async (cartKey: string) => {
@@ -1354,6 +1365,10 @@ export default function Cart() {
 
   const handleCheckoutSingleProduct = useCallback(
     async (product: CartItem) => {
+      if (!auth.currentUser) {
+        router.push({ pathname: "/PhoneAuth", params: { returnTo: "/Cart" } });
+        return;
+      }
       try {
         const res = await createCheckoutCart([product], auth.currentUser);
 
@@ -1363,7 +1378,7 @@ export default function Cart() {
 
         router.push({
           pathname: "/CheckoutWebview",
-          params: { url: checkoutUrl },
+          params: { url: checkoutUrl, cartId: res.data?.cartCreate?.cart?.id },
         });
       } catch (error) {
         Alert.alert(
@@ -1378,6 +1393,10 @@ export default function Cart() {
   );
 
   const handleCheckout = useCallback(async () => {
+    if (!auth.currentUser) {
+      router.push({ pathname: "/PhoneAuth", params: { returnTo: "/Cart" } });
+      return;
+    }
     try {
       const res = await createCheckoutCart(cartItems, auth.currentUser);
       const checkoutUrl = res?.data?.cartCreate?.cart?.checkoutUrl;
@@ -1385,7 +1404,7 @@ export default function Cart() {
         throw new Error("Shopify did not return a checkout URL.");
       router.push({
         pathname: "/CheckoutWebview",
-        params: { url: checkoutUrl },
+        params: { url: checkoutUrl, cartId: res.data?.cartCreate?.cart?.id },
       });
     } catch (error) {
       Alert.alert(

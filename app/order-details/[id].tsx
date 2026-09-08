@@ -519,6 +519,7 @@ export default function OrderTrackingScreen() {
   const insets = useSafeAreaInsets();
   const orders = useOrderStore((state) => state.orders);
   const ordersLoaded = useOrderStore((state) => state.ordersLoaded);
+  const orderError = useOrderStore(state => state.error);
   const order = orders.find((item) => item.orderId === String(id));
 
   // Per-section entrance animations
@@ -601,7 +602,7 @@ export default function OrderTrackingScreen() {
           </View>
           <Text style={styles.emptyTitle}>Order Not Found</Text>
           <Text style={styles.emptySub}>
-            We couldn't load this order. Please try again.
+            {orderError || "We couldn't load this order. Please try again."}
           </Text>
           <TouchableOpacity
             style={styles.emptyBtn}

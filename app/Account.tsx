@@ -1,10 +1,10 @@
 import SignUpModel from "@/components/modal/SignUpModel";
-import { auth } from "@/firebaseConfig";
 import { useOrderStore } from "@/store/orderStore";
 import { useUserStore } from "@/store/userStore";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { signOutAllSessions } from "@/lib/auth";
+import { useAuthStore } from "@/store/authStore";
 import { Stack, useRouter } from "expo-router";
-import { signOut as firebaseSignOut } from "firebase/auth";
 import React, { useState } from "react";
 import {
   Image,
@@ -117,16 +117,18 @@ const Account = () => {
   const router = useRouter();
   const user = useUserStore((state) => state.user);
   const clearUser = useUserStore((state) => state.clearUser);
-  const isLoggedIn = !!user;
+  const isLoggedIn = !!useAuthStore(state => state.user);
 
   const handleSignOut = async () => {
     try {
-      await firebaseSignOut(auth);
+      await signOutAllSessions();
+
       clearUser();
       useOrderStore.getState().clearOrders();
+
       router.replace("/");
-    } catch {
-      console.log("Error signing out");
+    } catch (error) {
+      console.log("Error signing out:", error);
     }
   };
 
@@ -206,7 +208,9 @@ const Account = () => {
                     numberOfLines={1}
                     className="text-[14px] font-black text-[#1c1c1c] tracking-wide"
                   >
-                    {isLoggedIn ? `${user?.userName || user?.email}` : "Guest"}
+                    {isLoggedIn
+                      ? user?.userName?.trim() || user?.number || "User"
+                      : "Guest"}
                   </Text>
                   <Text
                     numberOfLines={2}
@@ -230,8 +234,8 @@ const Account = () => {
                 ) : (
                   <View className="flex-row gap-3">
                     <Pressable
-                      // onPress={() => router.push("/PhoneAuth")}
-                      onPress={() => setOpenLogin(true)}
+                      onPress={() => router.push("/PhoneAuth")}
+                      // onPress={() => setOpenLogin(true)}
                       className="flex-row items-center justify-center border border-[#b7cbf7] rounded-[4px] py-2 px-5 active:bg-[#CAD9F7]"
                     >
                       <Text className="text-[#81a6f0] font-bold text-[13.5px]">
@@ -255,7 +259,7 @@ const Account = () => {
               { icon: "package", label: "Orders", route: "/Orders" },
               { icon: "heart", label: "Wishlist", route: "/Wishlist" },
               { icon: "map-pin", label: "Addresses", route: "/Addresses" },
-            ].map((item, i, arr) => (
+            ].filter(item => item.route !== "/EditProfile" || isLoggedIn).map((item, i, arr) => (
               <Pressable
                 onPress={() => router.push(item.route as any)}
                 key={item.label}

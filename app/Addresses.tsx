@@ -1,8 +1,9 @@
 // screens/MyAddresses.tsx
 import { auth, db } from "@/firebaseConfig";
+import { useAuthStore } from "@/store/authStore";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, writeBatch } from "@react-native-firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   Image,
@@ -440,6 +441,7 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 
 // ─── Main Screen ──────────────────────────────────────────
 export default function MyAddressesScreen() {
+  const sessionUid = useAuthStore(state => state.user?.uid ?? null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -450,6 +452,10 @@ export default function MyAddressesScreen() {
 
   // Address fetch to firebase
   useEffect(() => {
+    let active = true;
+    setAddresses([]);
+    setSelectedId("");
+    setDeleteTarget(null);
     const fetchAddresses = async () => {
       try {
         const user = auth.currentUser;
@@ -473,14 +479,15 @@ export default function MyAddressesScreen() {
           };
         });
 
-        setAddresses(fetchedAddresses as Address[]);
+        if (active && auth.currentUser?.uid === user.uid) setAddresses(fetchedAddresses as Address[]);
       } catch (error) {
         console.error("Error fetching addresses:", error);
       }
     };
 
     fetchAddresses();
-  }, []);
+    return () => { active = false; };
+  }, [sessionUid]);
 
   // ── Handlers (wire to Firebase later) ──
   const handleSelect = (id: string) => {

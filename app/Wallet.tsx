@@ -1,6 +1,6 @@
 import { EvilIcons, Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "@react-native-firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -15,6 +15,7 @@ import {
 import { Pressable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../firebaseConfig";
+import { useAuthStore } from "@/store/authStore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -98,6 +99,7 @@ function WalletSkeleton() {
 // ─── Main Screen --------------------------------------------
 
 export default function WalletScreen() {
+  const sessionUid = useAuthStore(state => state.user?.uid ?? null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -107,6 +109,7 @@ export default function WalletScreen() {
   const [copied, setCopied] = useState(false);
 
   const fetchWallet = useCallback(async () => {
+    setWallet(DEFAULT_WALLET);
     try {
       setError(null);
       const user = auth.currentUser;
@@ -115,6 +118,7 @@ export default function WalletScreen() {
         return;
       }
       const snap = await getDoc(doc(db, "users", user.uid));
+      if (auth.currentUser?.uid !== user.uid) return;
       if (snap.exists()) {
         const d = snap.data();
         setWallet({
@@ -131,7 +135,7 @@ export default function WalletScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sessionUid]);
 
   useEffect(() => {
     fetchWallet();
