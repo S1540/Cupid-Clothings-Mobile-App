@@ -24,6 +24,11 @@ async function fetchProducts(collectionHandle) {
                   title
                   description
                   handle
+                  availableForSale
+                  createdAt
+                  productType
+                  options { name values }
+                  collections(first: 100) { nodes { handle title } }
 
                   priceRange {
                     minVariantPrice {
@@ -62,6 +67,7 @@ async function fetchProducts(collectionHandle) {
 
   const data = await response.json();
 
+  if (data.errors?.length || !data.data?.collection) throw new Error("Unable to load collection");
   return data.data.collection.products.edges.map((edge) => {
     const original = parseFloat(
       edge.node.compareAtPriceRange.minVariantPrice.amount,
@@ -76,6 +82,11 @@ async function fetchProducts(collectionHandle) {
       handle: edge.node.handle,
       description: edge.node.description,
       price: sale,
+      availableForSale: edge.node.availableForSale,
+      createdAt: edge.node.createdAt,
+      productType: edge.node.productType,
+      sizes: (edge.node.options || []).filter((option) => /^(size|sizes)$/i.test(option.name.trim())).flatMap((option) => option.values),
+      collections: edge.node.collections?.nodes || [],
       compareAtPrice: original > sale ? original.toFixed(0) : null,
       discountPercent: discount > 0 ? discount : null,
       currency: edge.node.priceRange.minVariantPrice.currencyCode,
@@ -144,31 +155,7 @@ async function fetchMenu(menuHandle) {
 }
 const searchCache = new Map();
 const SEARCH_CACHE_TTL = 30_000;
-const SEARCH_SYNONYMS = {
-  pant: ["pants", "trouser", "trousers", "bottom"],
-  pants: ["pant", "trouser", "trousers", "bottom"],
-  trouser: ["pant", "pants", "trousers", "bottom"],
-  tshirt: ["t-shirt", "tee", "t shirt"],
-  tee: ["tshirt", "t-shirt", "t shirt"],
-  short: ["shorts", "half"],
-  shorts: ["short", "half"],
-  half: ["short", "shorts", "capri"],
-  cool: ["casual", "summer", "cotton", "oversized"],
-  blue: ["navy", "indigo", "sky"],
-  party: ["partywear", "occasion", "dressy"],
-  nightwear: ["night suit", "sleepwear", "pajama", "pyjama"],
-  pajama: ["pajamas", "night suit", "sleepwear"],
-};
-
-const normalizeSearch = (value) =>
-  String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const tokenizeSearch = (value) =>
-  [...new Set(normalizeSearch(value).split(" ").filter((token) => token.length > 1))];
+const { normalizeSearch, tokenizeSearch, rankSearchProducts } = require("../lib/searchRelevance");
 
 const toSearchProduct = (node) => {
   const original = parseFloat(node.compareAtPriceRange?.minVariantPrice?.amount || 0);
@@ -180,6 +167,11 @@ const toSearchProduct = (node) => {
     handle: node.handle,
     description: node.description || "",
     productType: node.productType || "",
+    currency: node.priceRange?.minVariantPrice?.currencyCode || "INR",
+    availableForSale: node.availableForSale,
+    createdAt: node.createdAt,
+    sizes: (node.options || []).filter(option => /size/i.test(option.name)).flatMap(option => option.values),
+    collections: (node.collections?.edges || []).map(edge => ({ handle: edge.node.handle, title: edge.node.title })),
     vendor: node.vendor || "",
     tags: node.tags || [],
     price: sale.toFixed(0),
@@ -187,17 +179,6 @@ const toSearchProduct = (node) => {
     discountPercent: discount > 0 ? discount : null,
     images: (node.images?.edges || []).map((img) => ({ url: img.node.url, alt: img.node.altText })),
   };
-};
-
-const scoreSearchProduct = (product, tokens) => {
-  const searchable = [product.title, product.handle, product.description, product.productType, product.vendor, ...(product.tags || [])].join(" ").toLowerCase();
-  const title = String(product.title || "").toLowerCase();
-  const matched = tokens.reduce((total, token) => {
-    const alternatives = [token, ...(SEARCH_SYNONYMS[token] || [])];
-    return total + (alternatives.some((word) => searchable.includes(word)) ? 1 : 0);
-  }, 0);
-  const titleMatches = tokens.reduce((total, token) => total + (title.includes(token) ? 1 : 0), 0);
-  return matched * 10 + titleMatches * 8 + (searchable.includes(tokens.join(" ")) ? 12 : 0);
 };
 
 async function fetchSearchProducts(searchQuery) {
@@ -211,7 +192,7 @@ async function fetchSearchProducts(searchQuery) {
       },
       body: JSON.stringify({
         query: `query SearchProducts($searchQuery: String!) {
-          products(first: 50, query: $searchQuery) {
+          products(first: 100, query: $searchQuery) {
             edges {
               node {
                 id
@@ -220,6 +201,10 @@ async function fetchSearchProducts(searchQuery) {
                 handle
                 productType
                 vendor
+                availableForSale
+                createdAt
+                options { name values }
+                collections(first: 30) { edges { node { handle title } } }
                 tags
                 priceRange {
                   minVariantPrice { amount currencyCode }
@@ -281,12 +266,7 @@ async function searchProducts(query) {
     ...tokens.slice(0, 4).map((token) => fetchSearchProducts(token)),
   ]);
   const uniqueProducts = [...new Map(candidateLists.flat().map((product) => [product.id, product])).values()];
-  const products = uniqueProducts
-    .map((product) => ({ product, score: scoreSearchProduct(product, tokens) }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 40)
-    .map(({ product }) => product);
+  const products = rankSearchProducts(uniqueProducts, normalizedQuery).slice(0, 100);
 
   searchCache.set(normalizedQuery, { createdAt: Date.now(), products });
   return products;

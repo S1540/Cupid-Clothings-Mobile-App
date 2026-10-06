@@ -93,6 +93,18 @@ export default {
 
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
+      [
+        "react-native-fbsdk-next",
+        {
+          appID: "1086460224315079",
+          displayName: "Cupid Clothing",
+          clientToken: "6d0696d093771541cb1bd29ca5462b98",
+          scheme: "fb1086460224315079",
+          autoLogAppEventsEnabled: true,
+          advertiserIDCollectionEnabled: true,
+          isAutoInitEnabled: true,
+        },
+      ],
 
       [
         "@rnmapbox/maps",

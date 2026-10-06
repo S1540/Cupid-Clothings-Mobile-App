@@ -1,32 +1,45 @@
 // app/category/[handle].tsx
+import CollectionFilterBar, {
+  FilterEmptyState,
+} from "@/components/catalog/CollectionFilterBar";
+import { FilterIce } from "@/components/catalog/iceTheme";
 import Similarproductsmodal from "@/components/modal/Similarproductsmodal";
-import HomeSkeleton from "@/components/ui/HomeSkeleton";
+import CatalogLoadingBoundary from "@/components/ui/CatalogLoadingBoundary";
+import NoInternet from "@/components/ui/NoInternet";
 import ProductCard from "@/components/ui/ProductCrad";
-import { useCartStore } from "@/store/cartStore";
+import { useAutoHideCollectionBar } from "@/hooks/useAutoHideCollectionBar";
+import { useCatalogQuery } from "@/hooks/useCatalogQuery";
+import { useCollectionFilters } from "@/hooks/useCollectionFilters";
 import {
-  EvilIcons,
-  Feather,
-  Ionicons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+  emptyFilters,
+  FilterableProduct,
+  selectCatalog,
+  SORT_OPTIONS,
+  SortOrder,
+} from "@/lib/catalogFilters";
+import { preloadProductImages } from "@/lib/productImagePreload";
+import {
+  collectionPath,
+  MENU_PATH,
+  REVIEW_SUMMARY_PATH,
+} from "@/store/catalogStore";
+import { EvilIcons, Feather, Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
   FlatList,
   Image,
-  LayoutChangeEvent,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from "react-native";
+import Animated from "react-native-reanimated";
 // RESPONSIVE: useSafeAreaInsets ensures nothing overlaps home indicator / notch
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type Product = {
+type Product = FilterableProduct & {
   id: string;
   title: string;
   handle: string;
@@ -56,8 +69,6 @@ type MenuTopCategory = {
   subcategories?: MenuSubcategory[];
 };
 
-type MenuApiResponse = MenuTopCategory[] | { menu: MenuTopCategory[] };
-
 type StripItem = {
   title: string;
   handle: string;
@@ -70,8 +81,34 @@ type CategoryContext = {
   children: StripItem[];
 };
 
-const MENU_HANDLE = "new-menu-07-12-2024";
-const ALL_LABEL = "ALL";
+const ALL_LABEL = "All";
+const EMPTY_PRODUCTS: Product[] = [];
+const EMPTY_MENU: MenuTopCategory[] = [];
+const EMPTY_REVIEWS = {};
+
+// Keep each card's callback stable when its position changes during sorting.
+const CollectionCard = memo(function CollectionCard({
+  item,
+  onSelect,
+  height,
+  reviews,
+}: {
+  item: Product;
+  onSelect: (product: Product) => void;
+  height: number;
+  reviews: any;
+}) {
+  const onPress = useCallback(() => onSelect(item), [item, onSelect]);
+  return (
+    <ProductCard
+      item={item}
+      onPress={onPress}
+      productImageHeight={height}
+      reviewSummary={reviews}
+    />
+  );
+});
+const productKey = (item: Product) => item.id;
 
 const formatHandleFallback = (rawHandle: string): string =>
   rawHandle
@@ -121,263 +158,76 @@ const findCategoryContext = (
   return null;
 };
 
-// Module-level cache: the menu tree rarely changes and is identical for
-// every category screen, so fetch it once per app session and reuse it.
-let cachedMenuPromise: Promise<MenuTopCategory[]> | null = null;
-
-const getMenu = (): Promise<MenuTopCategory[]> => {
-  if (!cachedMenuPromise) {
-    cachedMenuPromise = fetch(
-      `${process.env.EXPO_PUBLIC_API_URL}/api/products/menu/${MENU_HANDLE}`,
-    )
-      .then((res) => res.json())
-      .then((data: MenuApiResponse) => {
-        if (Array.isArray(data)) return data;
-        if (Array.isArray(data?.menu)) return data.menu;
-        return [];
-      })
-      .catch((err) => {
-        cachedMenuPromise = null;
-        throw err;
-      });
-  }
-  return cachedMenuPromise;
-};
-
-// RESPONSIVE: productImageHeight prop so card image scales with screen
-// const ProductCard = memo(
-//   ({
-//     item,
-//     reviewSummery,
-//     productImageHeight,
-//   }: {
-//     item: Product;
-//     reviewSummery: any;
-//     productImageHeight: number;
-//   }) => {
-//     const router = useRouter();
-//     const productId = item.id.split("/").pop();
-//     const review = productId && reviewSummery ? reviewSummery[productId] : null;
-
-//     return (
-//       <Pressable
-//         onPress={() =>
-//           router.push({
-//             pathname: "/product/[handle]",
-//             params: { handle: item.handle },
-//           })
-//         }
-//         style={styles.productCard}
-//       >
-//         <View style={[styles.productImageWrap, { height: productImageHeight }]}>
-//           <Image
-//             source={{ uri: item.images?.[0]?.url || "" }}
-//             style={{ width: "100%", height: "100%" }}
-//             resizeMode="cover"
-//             fadeDuration={0}
-//           />
-//           <Pressable
-//             //  onPressIn={handlePrefetch}
-//             style={styles.wishlistBtn}
-//             hitSlop={8}
-//           >
-//             {review && (
-//               <View
-//                 style={{
-//                   flexDirection: "row",
-//                   alignItems: "center",
-//                   marginTop: 4,
-//                   // marginBottom: 2,
-//                   paddingVertical: 1,
-//                   paddingHorizontal: 2,
-//                   borderRadius: 2,
-//                   backgroundColor: "rgba(255,255,255,0.55)",
-//                 }}
-//               >
-//                 <MaterialCommunityIcons name="star" size={13} color="#F59E0B" />
-
-//                 <Text
-//                   style={{
-//                     fontSize: 11,
-//                     fontWeight: "600",
-//                     marginLeft: 3,
-//                   }}
-//                 >
-//                   {review.averageRating} ({review.reviewCount})
-//                 </Text>
-//               </View>
-//             )}
-//           </Pressable>
-//         </View>
-
-//         <View style={{ padding: 10, gap: 4 }}>
-//           <Text numberOfLines={2} style={styles.productTitle}>
-//             {item.title}
-//           </Text>
-//           <View style={styles.priceRow}>
-//             <Text style={styles.price}>₹{item.price}</Text>
-//             {item.compareAtPrice && (
-//               <Text style={styles.comparePrice}>₹{item.compareAtPrice}</Text>
-//             )}
-//             {item.discountPercent && (
-//               <Text style={styles.discount}>{item.discountPercent}% off</Text>
-//             )}
-//           </View>
-//           <Text style={styles.firstOrderOffer}>30% off on first order</Text>
-//         </View>
-//       </Pressable>
-//     );
-//   },
-// );
-// ProductCard.displayName = "ProductCard";
-
-// ---- Premium pill: press-scale animation via native driver ----
-const CategoryPill = memo(
-  ({
-    item,
-    isActive,
-    onPress,
-    onLayout,
-  }: {
-    item: StripItem;
-    isActive: boolean;
-    onPress: (handle: string) => void;
-    onLayout: (event: LayoutChangeEvent) => void;
-  }) => {
-    const scale = useRef(new Animated.Value(1)).current;
-
-    const animateTo = useCallback(
-      (toValue: number) => {
-        Animated.spring(scale, {
-          toValue,
-          useNativeDriver: true,
-          speed: 40,
-          bounciness: 6,
-        }).start();
-      },
-      [scale],
-    );
-
-    return (
-      <Pressable
-        onPress={() => onPress(item.handle)}
-        onPressIn={() => animateTo(0.94)}
-        onPressOut={() => animateTo(1)}
-        onLayout={onLayout}
-        hitSlop={6}
-      >
-        <Animated.View
-          style={[
-            styles.pill,
-            isActive ? styles.pillActive : styles.pillInactive,
-            { transform: [{ scale }] },
-          ]}
-        >
-          <Text
-            numberOfLines={1}
-            style={[styles.pillText, isActive && styles.pillTextActive]}
-          >
-            {item.title}
-          </Text>
-        </Animated.View>
-      </Pressable>
-    );
-  },
-);
-CategoryPill.displayName = "CategoryPill";
-
-// Premium horizontal pill strip. Auto-centers the active pill whenever it
-// changes or first mounts, using measured pill layouts (no magic numbers).
-const CategoryStrip = memo(
-  ({
-    items,
-    activeHandle,
-    onSelect,
-  }: {
-    items: StripItem[];
-    activeHandle: string;
-    onSelect: (targetHandle: string) => void;
-  }) => {
-    const scrollViewRef = useRef<ScrollView>(null);
-    const itemLayouts = useRef<Record<string, { x: number; width: number }>>(
-      {},
-    );
-    const [containerWidth, setContainerWidth] = useState(0);
-
-    // Reset measured layouts whenever the set of items changes (new category).
-    useEffect(() => {
-      itemLayouts.current = {};
-    }, [items]);
-
-    const centerPill = useCallback(
-      (x: number, width: number) => {
-        if (!scrollViewRef.current || containerWidth === 0) return;
-        const targetX = Math.max(0, x - containerWidth / 2 + width / 2);
-        scrollViewRef.current.scrollTo({ x: targetX, animated: true });
-      },
-      [containerWidth],
-    );
-
-    // Re-center whenever the active handle changes and we already know its layout.
-    useEffect(() => {
-      const layout = itemLayouts.current[activeHandle];
-      if (layout) centerPill(layout.x, layout.width);
-    }, [activeHandle, centerPill]);
-
-    const handlePillLayout = useCallback(
-      (handle: string) => (event: LayoutChangeEvent) => {
-        const { x, width } = event.nativeEvent.layout;
-        itemLayouts.current[handle] = { x, width };
-        if (handle === activeHandle) centerPill(x, width);
-      },
-      [activeHandle, centerPill],
-    );
-
-    const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
-      setContainerWidth(event.nativeEvent.layout.width);
-    }, []);
-
-    if (items.length === 0) return null;
-
-    return (
-      <View style={styles.stripWrap} onLayout={handleContainerLayout}>
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          contentContainerStyle={styles.stripContent}
-        >
-          {items.map((item) => (
-            <CategoryPill
-              key={item.handle}
-              item={item}
-              isActive={item.handle === activeHandle}
-              onPress={onSelect}
-              onLayout={handlePillLayout(item.handle)}
-            />
-          ))}
-        </ScrollView>
-      </View>
-    );
-  },
-);
-CategoryStrip.displayName = "CategoryStrip";
-
 const Handle = () => {
   const [wishlist, setWishlist] = useState(false);
-  const [reviewSummery, setReviewSummery] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [similarModal, setSimilarModal] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
   const params = useLocalSearchParams<{ handle?: string | string[] }>();
   const router = useRouter();
   const currentHandle: string = Array.isArray(params.handle)
     ? params.handle[0]
     : (params.handle ?? "");
 
-  const [activeHandle, setActiveHandle] = useState(currentHandle);
+  const [selection, setSelection] = useState({
+    route: currentHandle,
+    handle: currentHandle,
+  });
+  const activeHandle =
+    selection.route === currentHandle ? selection.handle : currentHandle;
+  const {
+    data: cachedProducts,
+    loading,
+    offline,
+    error: productError,
+    refresh: retryProducts,
+  } = useCatalogQuery<Product[]>(
+    activeHandle ? collectionPath(activeHandle) : null,
+  );
+  const products = cachedProducts ?? EMPTY_PRODUCTS;
+  const { data: cachedMenu } = useCatalogQuery<MenuTopCategory[]>(MENU_PATH);
+  const catalogMenu = cachedMenu ?? EMPTY_MENU;
+  const filtering = useCollectionFilters(products, catalogMenu, activeHandle);
+  const [filterBarHeight, setFilterBarHeight] = useState(82);
+  const autoBar = useAutoHideCollectionBar(
+    activeHandle,
+    !loading && products.length > 0,
+    filterBarHeight,
+  );
+  const productListRef = useRef<FlatList<Product>>(null);
+  const previewSort = (sort: SortOrder) => {
+    if (offline) return;
+    const next = selectCatalog(filtering.index, filtering.filters, sort);
+    preloadProductImages(
+      next.slice(0, 8).flatMap((item) => item.images.slice(0, 1)),
+      true,
+    );
+  };
+  const prepareSortImages = () => {
+    if (offline) return;
+    // Only warm the first screen of each possible order, never the full catalog.
+    const images = SORT_OPTIONS.filter(
+      (option) =>
+        option.value !== filtering.sort &&
+        (option.value !== "newest" || filtering.index.hasDates),
+    ).flatMap((option) =>
+      selectCatalog(filtering.index, filtering.filters, option.value)
+        .slice(0, 4)
+        .flatMap((item) => item.images.slice(0, 1)),
+    );
+    preloadProductImages(images);
+  };
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: { item: Product }[] }) => {
+      viewableItems.forEach(({ item }) =>
+        preloadProductImages(item.images ?? []),
+      );
+    },
+  ).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 40 }).current;
+  const { data: reviewData } = useCatalogQuery<{ products: any }>(
+    REVIEW_SUMMARY_PATH,
+  );
+  const reviewSummery = reviewData?.products ?? EMPTY_REVIEWS;
 
   const [categoryContext, setCategoryContext] =
     useState<CategoryContext | null>(null);
@@ -390,10 +240,31 @@ const Handle = () => {
   const insets = useSafeAreaInsets();
   const cardWidth = (width - 24 - 4) * 0.49;
   const productImageHeight = Math.round(cardWidth * 1.35);
+  const openSimilarProduct = useCallback((item: Product) => {
+    setSelectedProduct(item);
+    setSimilarModal(true);
+  }, []);
+  const renderProduct = useCallback(
+    ({ item }: { item: Product }) => (
+      <CollectionCard
+        item={item}
+        onSelect={openSimilarProduct}
+        height={productImageHeight}
+        reviews={reviewSummery}
+      />
+    ),
+    [openSimilarProduct, productImageHeight, reviewSummery],
+  );
+
+  useEffect(() => {
+    filtering.results
+      .slice(0, 8)
+      .forEach((item) => preloadProductImages(item.images.slice(0, 1)));
+  }, [filtering.results]);
 
   // ---- Reset in-page filter whenever the page itself changes (new route) ----
   useEffect(() => {
-    setActiveHandle(currentHandle);
+    setSelection({ route: currentHandle, handle: currentHandle });
   }, [currentHandle]);
 
   // ---- Menu resolution: runs once per page (per currentHandle), menu itself is cached ----
@@ -403,82 +274,19 @@ const Handle = () => {
       return;
     }
 
-    let ignore = false;
     setCurrentCategoryTitle(formatHandleFallback(currentHandle));
-
-    const resolveContext = async () => {
-      try {
-        const menu = await getMenu();
-        const topCategoryTitle = currentHandle.startsWith("men")
-          ? "Men"
-          : "Women";
-        const topCategory = menu.find(
-          (category) => category.title === topCategoryTitle,
-        );
-        const context = topCategory
-          ? findCategoryContext([topCategory], currentHandle)
-          : null;
-
-        if (ignore) return;
-        setCategoryContext(context);
-        setCurrentCategoryTitle(
-          context?.subTitle ?? formatHandleFallback(currentHandle),
-        );
-      } catch (error) {
-        console.error("Error fetching category menu:", error);
-        if (!ignore) setCategoryContext(null);
-      }
-    };
-
-    resolveContext();
-    return () => {
-      ignore = true;
-    };
-  }, [currentHandle]);
-
-  // ---- Product fetching: refetches ONLY when the in-page filter changes ----
-  useEffect(() => {
-    if (!activeHandle) return;
-
-    let ignore = false;
-    const fetchProducts = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${activeHandle}`,
-        );
-        const data = await response.json();
-        if (!ignore) setProducts(data);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    };
-
-    fetchProducts();
-    return () => {
-      ignore = true;
-    };
-  }, [activeHandle]);
-  // fetch review from db(firebasse)
-  useEffect(() => {
-    const fetchReviewSummery = async () => {
-      try {
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/api/judgeme/review-summary`,
-        );
-
-        const data = await response.json();
-        if (data.success) {
-          setReviewSummery(data.products);
-        }
-      } catch (error) {
-        console.log("Review summary error:", error);
-      }
-    };
-    fetchReviewSummery();
-  }, []);
+    const topCategoryTitle = currentHandle.startsWith("men") ? "Men" : "Women";
+    const topCategory = catalogMenu.find(
+      (category) => category.title === topCategoryTitle,
+    );
+    const context = topCategory
+      ? findCategoryContext([topCategory], currentHandle)
+      : null;
+    setCategoryContext(context);
+    setCurrentCategoryTitle(
+      context?.subTitle ?? formatHandleFallback(currentHandle),
+    );
+  }, [currentHandle, catalogMenu]);
 
   // Strip is [ALL, ...children] — ALL reuses the subcategory's own handle,
   // so selecting it re-fetches the exact same list the page opened with.
@@ -492,9 +300,12 @@ const Handle = () => {
     return dedupeByHandle([allPill, ...categoryContext.children]);
   }, [categoryContext]);
 
-  const handleSelectCategory = useCallback((targetHandle: string) => {
-    setActiveHandle((prev) => (prev === targetHandle ? prev : targetHandle));
-  }, []);
+  const handleSelectCategory = useCallback(
+    (targetHandle: string) => {
+      setSelection({ route: currentHandle, handle: targetHandle });
+    },
+    [currentHandle],
+  );
 
   return (
     <>
@@ -506,7 +317,7 @@ const Handle = () => {
             </Text>
           ),
           headerShadowVisible: false,
-          headerStyle: { backgroundColor: "#fff7f8" },
+          headerStyle: { backgroundColor: FilterIce.header },
           headerLeft: () => (
             <Pressable onPress={() => router.back()}>
               <EvilIcons name="chevron-left" size={34} color="#1a1a1a" />
@@ -537,76 +348,158 @@ const Handle = () => {
         }}
       />
 
-      {loading ? (
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <HomeSkeleton />
-        </View>
-      ) : products.length === 0 ? (
-        <View
-          style={{
-            flex: 1,
-            // justifyContent: "center",
-
-            alignItems: "center",
-            paddingHorizontal: 30,
-            backgroundColor: "#fff",
-          }}
-        >
-          <Image
-            style={{ width: 100, height: 100, marginBottom: 8, marginTop: 120 }}
-            source={require("../../assets/icons/empty.png")}
-          />
-          <Text
+      <CatalogLoadingBoundary
+        routeKey={activeHandle}
+        loading={loading}
+        variant="category"
+        skipPreview={offline && !cachedProducts}
+      >
+        {offline && !cachedProducts ? (
+          <NoInternet onRetry={retryProducts} />
+        ) : products.length === 0 ? (
+          <View
             style={{
-              fontSize: 16,
-              fontWeight: "700",
-              color: "#1a1a1a",
-              marginBottom: 4,
+              flex: 1,
+              // justifyContent: "center",
+
+              alignItems: "center",
+              paddingHorizontal: 30,
+              backgroundColor: "#fff",
             }}
           >
-            No products available as of now
-          </Text>
-          <Text style={{ fontSize: 13, color: "#999" }}>
-            Try different keywords
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={products}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          style={{ backgroundColor: "#fff" }}
-          renderItem={({ item }) => (
-            <ProductCard
-              item={item}
-              onPress={() => {
-                setSelectedProduct(item);
-                setSimilarModal(true);
+            <Image
+              style={{
+                width: 100,
+                height: 100,
+                marginBottom: 8,
+                marginTop: 120,
               }}
-
-              productImageHeight={productImageHeight}
-              reviewSummary={reviewSummery}
+              source={require("../../assets/icons/empty.png")}
             />
-          )}
-          columnWrapperStyle={styles.columnWrapper}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={6}
-          maxToRenderPerBatch={6}
-          windowSize={5}
-          stickyHeaderIndices={[0]}
-          ListHeaderComponent={
-            <CategoryStrip
-              items={stripItems}
-              activeHandle={activeHandle}
-              onSelect={handleSelectCategory}
-            />
-          }
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "700",
+                color: "#1a1a1a",
+                marginBottom: 4,
+              }}
+            >
+              {productError || "No products available as of now"}
+            </Text>
+            {productError ? (
+              <Pressable
+                onPress={() => void retryProducts()}
+                style={{ padding: 16 }}
+              >
+                <Text>Retry</Text>
+              </Pressable>
+            ) : (
+              <Text style={{ fontSize: 13, color: "#999" }}>
+                Try different keywords
+              </Text>
+            )}
+          </View>
+        ) : (
+          <View
+            style={{ flex: 1, overflow: "hidden", backgroundColor: "#fff" }}
+          >
+            <View
+              pointerEvents={autoBar.hidden ? "none" : "box-none"}
+              accessibilityElementsHidden={autoBar.hidden}
+              importantForAccessibility={
+                autoBar.hidden ? "no-hide-descendants" : "auto"
+              }
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: filterBarHeight,
+                overflow: "hidden",
+                zIndex: 10,
+              }}
+              onTouchStart={autoBar.onScrollBeginDrag}
+              onTouchEnd={autoBar.onScrollEndDrag}
+            >
+              <Animated.View
+                onLayout={(event) =>
+                  setFilterBarHeight(event.nativeEvent.layout.height)
+                }
+                style={[
+                  { position: "absolute", top: 0, left: 0, right: 0 },
+                  autoBar.slideStyle,
+                ]}
+              >
+                <CollectionFilterBar
+                  key={activeHandle}
+                  onSheetChange={autoBar.onSheetChange}
+                  styleOptions={stripItems}
+                  activeStyle={activeHandle}
+                  onStyle={handleSelectCategory}
+                  filters={filtering.filters}
+                  sort={filtering.sort}
+                  facets={filtering.index.facets}
+                  hasDates={filtering.index.hasDates}
+                  count={filtering.results.length}
+                  offline={offline}
+                  onSortOpen={prepareSortImages}
+                  onSortPreview={previewSort}
+                  onApply={(next) => {
+                    filtering.setFilters(next);
+                    productListRef.current?.scrollToOffset({
+                      offset: 0,
+                      animated: false,
+                    });
+                  }}
+                  onSort={(next) => {
+                    previewSort(next);
+                    filtering.setSort(next);
+                    productListRef.current?.scrollToOffset({
+                      offset: 0,
+                      animated: false,
+                    });
+                  }}
+                />
+              </Animated.View>
+            </View>
+            <FlatList
+              ref={productListRef}
+              data={filtering.results}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+              keyExtractor={productKey}
+              numColumns={2}
+              style={{ backgroundColor: "#fff" }}
+              ListHeaderComponent={<View style={{ height: filterBarHeight }} />}
+              renderItem={renderProduct}
+              columnWrapperStyle={styles.columnWrapper}
+              showsVerticalScrollIndicator={false}
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={16}
+              windowSize={5}
+              onScroll={autoBar.onScroll}
+              scrollEventThrottle={16}
+              onScrollBeginDrag={autoBar.onScrollBeginDrag}
+              onScrollEndDrag={autoBar.onScrollEndDrag}
+              onMomentumScrollEnd={autoBar.onMomentumScrollEnd}
+              onTouchStart={autoBar.onTouchStart}
+              onTouchMove={autoBar.onTouchMove}
+              onTouchEnd={autoBar.onTouchEnd}
+              onTouchCancel={autoBar.onTouchEnd}
+              ListEmptyComponent={
+                <FilterEmptyState
+                  onClear={() => filtering.setFilters(emptyFilters())}
+                />
+              }
 
-          ListFooterComponent={<View style={{ height: 16 + insets.bottom }} />}
-        />
-      )}
+              ListFooterComponent={
+                <View style={{ height: 16 + insets.bottom }} />
+              }
+            />
+          </View>
+        )}
+      </CatalogLoadingBoundary>
       <Similarproductsmodal
         visible={similarModal}
         product={selectedProduct}
@@ -677,44 +570,5 @@ const styles = StyleSheet.create({
   columnWrapper: {
     justifyContent: "space-between",
     paddingHorizontal: 12,
-  },
-  // ---- Category strip ----
-  stripWrap: {
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f2eaec",
-  },
-  stripContent: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    alignItems: "center",
-    gap: 10,
-  },
-  pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 6,
-  },
-  pillActive: {
-    backgroundColor: "#F87387",
-    shadowColor: "#ff4f81",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  pillInactive: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#f4f2f8",
-  },
-  pillText: {
-    fontSize: 13.5,
-    fontWeight: "600",
-    color: "#4a4a4a",
-  },
-  pillTextActive: {
-    color: "#ffffff",
-    fontWeight: "700",
   },
 });

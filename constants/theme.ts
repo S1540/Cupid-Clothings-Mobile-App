@@ -5,6 +5,17 @@
 
 import { Platform } from 'react-native';
 
+// Existing Account / EditProfile palette, shared by collection controls.
+export const CupidPalette = {
+  ice: '#759EF0',
+  pink: '#F87387',
+  ink: '#1c1c1c',
+  muted: '#555',
+  surface: '#fff',
+  background: '#f6f6f6',
+  border: '#f0f0f0',
+} as const;
+
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 

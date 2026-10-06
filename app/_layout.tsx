@@ -1,4 +1,7 @@
 import BottomBar from "@/components/BottomBar";
+import { NetworkNotice } from "@/components/ui/NoInternet";
+import { monitorConnection } from "@/lib/network";
+import "@/store/catalogStore";
 import CustomSplash from "@/components/ui/CustomSplash";
 import { db } from "@/firebaseConfig";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -38,6 +41,7 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  useEffect(monitorConnection, []);
   const [isAppReady, setIsAppReady] = useState(false);
   const oneSignalInitialized = useRef(false);
   const pendingOneSignalTags = useRef<{
@@ -209,6 +213,10 @@ export default function RootLayout() {
         {sessionReady && !hideBottomBar && !pathname.startsWith("/PhoneAuth") && !pathname.startsWith("/order-details/") && <BottomBar />}
 
         <StatusBar style="dark" />
+        <NetworkNotice bottomOffset={
+          pathname.startsWith("/product/") || pathname === "/Cart" ? 100
+            : sessionReady && !hideBottomBar && !pathname.startsWith("/PhoneAuth") && !pathname.startsWith("/order-details/") ? 78 : 16
+        } />
       </ThemeProvider>
 
       {isAppReady === false && (

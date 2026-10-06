@@ -88,11 +88,11 @@ const events = {
       transaction_id: orderId,
       currency: "INR",
       value: total,
-      items: products.map(product => ({
-          item_id: product.id,
-          item_name: product.title,
-          quantity: product.quantity ?? 1,
-          ...(product.price === undefined ? {} : { price: product.price }),
+      items: products.map((product) => ({
+        item_id: product.id,
+        item_name: product.title,
+        quantity: product.quantity ?? 1,
+        ...(product.price === undefined ? {} : { price: product.price }),
       })),
     });
   },
@@ -141,13 +141,34 @@ const events = {
     });
   },
   emailAdded: async () => analytics.logEvent("email_added", {}),
-  otp: async (event: "phone_otp_requested" | "phone_otp_verified" | "phone_login_success" | "phone_login_failed", purpose: string, isResend = false, code?: string) => {
+  otp: async (
+    event:
+      | "phone_otp_requested"
+      | "phone_otp_verified"
+      | "phone_login_success"
+      | "phone_login_failed",
+    purpose: string,
+    isResend = false,
+    code?: string,
+  ) => {
     const allowedPurposes = ["login", "link", "change", "reauth"];
-    const allowedErrors = ["auth/invalid-verification-code", "auth/session-expired", "auth/too-many-requests", "auth/network-request-failed", "auth/credential-already-in-use"];
+    const allowedErrors = [
+      "auth/invalid-verification-code",
+      "auth/session-expired",
+      "auth/too-many-requests",
+      "auth/network-request-failed",
+      "auth/credential-already-in-use",
+    ];
     await analytics.logEvent(event, {
       purpose: allowedPurposes.includes(purpose) ? purpose : "login",
       is_resend: isResend ? 1 : 0,
-      ...(code ? { error_category: allowedErrors.includes(code) ? code.replace("auth/", "") : "other" } : {}),
+      ...(code
+        ? {
+            error_category: allowedErrors.includes(code)
+              ? code.replace("auth/", "")
+              : "other",
+          }
+        : {}),
     });
   },
 };
@@ -157,6 +178,9 @@ export const Analytics = new Proxy(events, {
   get(target, property: keyof typeof events) {
     const handler = target[property];
     if (typeof handler !== "function") return handler;
-    return (...args: unknown[]) => Promise.resolve().then(() => (handler as (...values: unknown[]) => unknown)(...args)).catch(() => undefined);
+    return (...args: unknown[]) =>
+      Promise.resolve()
+        .then(() => (handler as (...values: unknown[]) => unknown)(...args))
+        .catch(() => undefined);
   },
 });

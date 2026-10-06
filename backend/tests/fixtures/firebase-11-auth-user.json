@@ -1,0 +1,25 @@
+{
+  "uid": "legacy-user",
+  "email": "legacy@example.test",
+  "emailVerified": true,
+  "isAnonymous": false,
+  "providerData": [
+    {
+      "providerId": "password",
+      "uid": "legacy@example.test",
+      "email": "legacy@example.test",
+      "displayName": null,
+      "photoURL": null,
+      "phoneNumber": null
+    }
+  ],
+  "stsTokenManager": {
+    "refreshToken": "synthetic-refresh-token",
+    "accessToken": "synthetic-access-token",
+    "expirationTime": 4102444800000
+  },
+  "createdAt": "1700000000000",
+  "lastLoginAt": "1700000000000",
+  "apiKey": "demo-api-key",
+  "appName": "[DEFAULT]"
+}

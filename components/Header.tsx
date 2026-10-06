@@ -1,9 +1,8 @@
+import { useSearchPlaceholder } from "@/hooks/useSearchPlaceholder";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
-import { useRef } from "react";
 import {
-  Animated,
   Image,
   Platform,
   Pressable,
@@ -31,8 +30,8 @@ export default function Header({
   setActiveNav: (value: string) => void;
 }) {
   const router = useRouter();
+  const searchPlaceholder = useSearchPlaceholder();
   const insets = useSafeAreaInsets();
-  const bannerAnim = useRef(new Animated.Value(0)).current;
   return (
     // ─── FIX 1: position absolute so it floats over the carousel ───
     <View
@@ -101,6 +100,8 @@ export default function Header({
         {/* SEARCH BAR */}
         <Pressable
           onPress={() => router.push("./Search")}
+          accessibilityRole="button"
+          accessibilityLabel="Search products"
           style={{
             flex: 1,
             flexDirection: "row",
@@ -116,8 +117,11 @@ export default function Header({
           }}
         >
           <Feather name="search" size={15} color="#ff5c84" />
-          <Text style={{ flex: 1, fontSize: 13, color: "#c4a0a8" }}>
-            Search styles, brands...
+          <Text
+            numberOfLines={1}
+            style={{ flex: 1, fontSize: 13, color: "#c4a0a8" }}
+          >
+            {searchPlaceholder}
           </Text>
         </Pressable>
 

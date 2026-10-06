@@ -9,8 +9,20 @@ This section supersedes the earlier checklist below.
 - 42 local regression tests and 5 Firestore emulator tests pass. Local deployment configuration passes.
 - Removed the two manual validation booleans from runtime availability. `SHIPROCKET_WEBHOOK_VALIDATED` and `CHECKOUT_ASSOCIATION_VALIDATED` are retired and ignored; keeping them set to false will not block this release. Every webhook still requires the correct signature/token. These code changes do not establish genuine provider delivery.
 - `CHECKOUT_ENABLED=false` pauses new checkouts; absent or true permits checkout when credentials/profile/Shopify response/database mapping are valid. Existing orders continue processing while new checkout is paused. Store configuration supports the existing `SHOPIFY_SHOP` slug or `SHOPIFY_STORE` domain.
-- Backend push/deployment and genuine provider callbacks remain to be verified. New code will expose `/health` with implementation `otp-checkout-v1`.
+- Backend deployment verified live on 2026-09-08 after the user reported deployment: `/health` returns 200 with implementation `otp-checkout-v1`; unauthenticated POSTs to `/api/users/me/bootstrap`, `/api/checkout`, and `/api/checkout/status` each return 401 `UNAUTHENTICATED`, with no missing routes. These checks establish deployment and authentication boundaries only. Updated-app OTP/profile/checkout and genuine provider callbacks remain to be verified.
 - Testers require the updated app for profile writes/onboarding; old app direct profile/reward writes are denied by the new rules. Existing order ownership/coins have not been moved or reset.
+
+### Live callback boundary check — 2026-09-08
+
+- Both production webhook POST routes reject unsigned requests with 401. With the locally configured Shopify signature / Shiprocket token, an empty payload reaches validation and returns 400 as expected. Empty payloads fail before database writes. This confirms deployed credential agreement and validation, not genuine provider delivery.
+- Read-only collection queries (limit 20 each) returned one checkout mapping with no associated order, zero order ownership records, zero unresolved Shopify orders and zero pending tracking events. No completed order association or provider callback can be verified from these records yet; existing legacy user orders were not part of these queries.
+- Remaining input: a designated order completed through the updated app, followed by genuine provider delivery evidence. No purchase, shipment, fabricated order or tracking update was created by this check.
+
+### Placed order verification — 2026-09-08
+
+- After the user reported placing an order, read-only checks confirmed order #78416 exists under the UID recorded in its checkout mapping, and `orderOwners` agrees. The profile has no email. Checkout creation timestamp: 2026-09-08T10:51:40.378Z. This establishes a live app checkout-to-order association for an email-free profile.
+- This order has no unresolved order record. Its tracking status, AWB, courier and tracking update timestamp are absent; tracking history and matching pending tracking records are empty. Genuine tracking delivery remains unverified.
+- Two other unresolved Shopify order records report `unmatched_email`; they were not attributed to this test order or modified.
 
 ## Earlier preparation record (superseded above)
 

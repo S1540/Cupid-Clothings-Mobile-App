@@ -1,11 +1,12 @@
 import CartSkeleton from "@/components/CartSkeleton";
 import LoginModel from "@/components/modal/LoginModel";
-import { useAuthStore } from "@/store/authStore";
 import SignUpModel from "@/components/modal/SignUpModel";
 import SuccessToast from "@/components/SuccessToast";
 import { auth, db } from "@/firebaseConfig";
 import { loadCart, removeCartLine, setCartLineQuantity } from "@/lib/cart";
+import { MetaAnalytics } from "@/lib/metaAnalytics";
 import { createCheckoutCart } from "@/lib/shopify";
+import { useAuthStore } from "@/store/authStore";
 import { type CartItem, useCartStore } from "@/store/cartStore";
 import { useLocationStore } from "@/store/useLocationStore";
 import {
@@ -14,8 +15,14 @@ import {
   Ionicons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  setDoc,
+} from "@react-native-firebase/firestore";
 import { Stack, useRouter } from "expo-router";
-import { collection, deleteDoc, doc, onSnapshot, setDoc } from "@react-native-firebase/firestore";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -53,8 +60,6 @@ const C = {
 const TABLET_BREAKPOINT = 768;
 const TABLET_MAX_CONTENT_WIDTH = 600;
 const SMALL_SCREEN_BREAKPOINT = 340;
-// Keep the quantity stepper and the two icon actions readable on phones where
-// the product info column cannot fit all three controls side-by-side.
 const COMPACT_ACTIONS_BREAKPOINT = 400;
 const FONT_SCALE_TIGHT = 1.3;
 const FONT_SCALE_NORMAL = 1.6;
@@ -70,16 +75,12 @@ const S = StyleSheet.create({
   itemThumb: {
     width: 100,
     height: 130,
-    // UI: consistent 8-radius across the screen (was 4) for a more premium,
-    // unified look.
     borderRadius: 4,
     backgroundColor: C.bg,
   },
   buyNow: {
     borderWidth: 1,
     borderColor: C.line,
-    // UI: consistent radius + slightly taller so it reads as a real
-    // secondary button (min ~36-38dp) instead of a thin strip.
     borderRadius: 6,
     marginTop: 12,
     overflow: "hidden",
@@ -700,7 +701,9 @@ const CartItemRow = React.memo(
               ]}
             >
               <View
-                style={isCompactActions ? { alignSelf: "flex-start" } : undefined}
+                style={
+                  isCompactActions ? { alignSelf: "flex-start" } : undefined
+                }
               >
                 <QtyStepper
                   qty={item.quantity}
@@ -1033,7 +1036,7 @@ const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
 
 // ─── MAIN SCREEN ──────────────────────────────────────────────
 export default function Cart() {
-  const sessionUid = useAuthStore(state => state.user?.uid ?? null);
+  const sessionUid = useAuthStore((state) => state.user?.uid ?? null);
   const router = useRouter();
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pinCode, setPinCode] = useState("");
@@ -1104,10 +1107,15 @@ export default function Cart() {
       return;
     }
 
-    return onSnapshot(collection(db, "users", user.uid, "wishlist"), (snapshot) => {
-      if (auth.currentUser?.uid !== user.uid) return;
-      setWishlistProductIds(new Set(snapshot.docs.map((wishlistItem) => wishlistItem.id)));
-    });
+    return onSnapshot(
+      collection(db, "users", user.uid, "wishlist"),
+      (snapshot) => {
+        if (auth.currentUser?.uid !== user.uid) return;
+        setWishlistProductIds(
+          new Set(snapshot.docs.map((wishlistItem) => wishlistItem.id)),
+        );
+      },
+    );
   }, [sessionUid]);
 
   const remove = useCallback(
@@ -1165,55 +1173,60 @@ export default function Cart() {
     [cartItems, remove, setCartItems],
   );
 
-  const addToWishlist = useCallback(async (item: CartItem) => {
-    const user = auth.currentUser;
-    if (!user) {
-      setOpenLogin(true);
-      return;
-    }
-
-    const productId = item.productId.split("/").pop();
-    if (!productId) {
-      Alert.alert("Couldn't save item", "This product has an invalid ID.");
-      return;
-    }
-
-    const isWishlisted = wishlistProductIds.has(productId);
-
-    try {
-      if (isWishlisted) {
-        await deleteDoc(doc(db, "users", user.uid, "wishlist", productId));
-        setWishlistProductIds((currentIds) => {
-          const nextIds = new Set(currentIds);
-          nextIds.delete(productId);
-          return nextIds;
-        });
+  const addToWishlist = useCallback(
+    async (item: CartItem) => {
+      const user = auth.currentUser;
+      if (!user) {
+        setOpenLogin(true);
         return;
       }
 
-      await setDoc(doc(db, "users", user.uid, "wishlist", productId), {
-        id: productId,
-        handle: item.handle,
-        title: item.title,
-        image: item.image,
-        price: Number(item.price),
-        compareAtPrice: item.compareAtPrice
-          ? Number(item.compareAtPrice)
-          : null,
-        discount: item.discountPercent || 0,
-        stock: 999,
-        variantId: item.variantId,
-        size: item.size,
-        addedAt: Date.now(),
-      });
-      setWishlistProductIds((currentIds) => new Set(currentIds).add(productId));
-      setShowWishlistToast(true);
-      setTimeout(() => setShowWishlistToast(false), 1500);
-    } catch (error) {
-      console.error("Cart wishlist save error:", error);
-      Alert.alert("Couldn't save item", "Please try again.");
-    }
-  }, [wishlistProductIds]);
+      const productId = item.productId.split("/").pop();
+      if (!productId) {
+        Alert.alert("Couldn't save item", "This product has an invalid ID.");
+        return;
+      }
+
+      const isWishlisted = wishlistProductIds.has(productId);
+
+      try {
+        if (isWishlisted) {
+          await deleteDoc(doc(db, "users", user.uid, "wishlist", productId));
+          setWishlistProductIds((currentIds) => {
+            const nextIds = new Set(currentIds);
+            nextIds.delete(productId);
+            return nextIds;
+          });
+          return;
+        }
+
+        await setDoc(doc(db, "users", user.uid, "wishlist", productId), {
+          id: productId,
+          handle: item.handle,
+          title: item.title,
+          image: item.image,
+          price: Number(item.price),
+          compareAtPrice: item.compareAtPrice
+            ? Number(item.compareAtPrice)
+            : null,
+          discount: item.discountPercent || 0,
+          stock: 999,
+          variantId: item.variantId,
+          size: item.size,
+          addedAt: Date.now(),
+        });
+        setWishlistProductIds((currentIds) =>
+          new Set(currentIds).add(productId),
+        );
+        setShowWishlistToast(true);
+        setTimeout(() => setShowWishlistToast(false), 1500);
+      } catch (error) {
+        console.error("Cart wishlist save error:", error);
+        Alert.alert("Couldn't save item", "Please try again.");
+      }
+    },
+    [wishlistProductIds],
+  );
 
   const keyExtractor = useCallback((item: CartItem) => item.cartKey, []);
 
@@ -1226,7 +1239,9 @@ export default function Cart() {
         onDecrease={() => decrease(item.cartKey)}
         onRemove={() => remove(item.cartKey)}
         onWishlist={() => addToWishlist(item)}
-        isWishlisted={wishlistProductIds.has(item.productId.split("/").pop() || "")}
+        isWishlisted={wishlistProductIds.has(
+          item.productId.split("/").pop() || "",
+        )}
         onNavigate={() =>
           router.push({
             pathname: "/product/[handle]",
@@ -1406,6 +1421,17 @@ export default function Cart() {
         pathname: "/CheckoutWebview",
         params: { url: checkoutUrl, cartId: res.data?.cartCreate?.cart?.id },
       });
+      MetaAnalytics.initiateCheckout(
+        cartItems.map((item) => ({
+          id: item.productId,
+          title: item.title,
+          price: Number(item.price),
+          quantity: item.quantity,
+        })),
+      );
+      console.log("META CHECKOUT ITEMS:", cartItems);
+
+      console.log("MetaAnalytics: Initiate Checkout event fired");
     } catch (error) {
       Alert.alert(
         "Checkout unavailable",

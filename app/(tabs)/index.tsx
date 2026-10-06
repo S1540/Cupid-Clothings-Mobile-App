@@ -682,7 +682,6 @@ export default function Index() {
         setLoginRewardModal(false);
         return;
       }
-
       timer = setTimeout(() => {
         if (!getAuth().currentUser) setLoginRewardModal(true);
       }, 5000);

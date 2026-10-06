@@ -1,5 +1,9 @@
 // app/product/[handle].tsx
-import Loader from "@/components/ui/Loader";
+import CatalogLoadingBoundary from "@/components/ui/CatalogLoadingBoundary";
+import NoInternet from "@/components/ui/NoInternet";
+import { useCatalogQuery } from "@/hooks/useCatalogQuery";
+import { MetaAnalytics } from "@/lib/metaAnalytics";
+import { collectionPath, productPath } from "@/store/catalogStore";
 import { EvilIcons, Feather, Ionicons } from "@expo/vector-icons";
 import {
   Stack,
@@ -7,7 +11,13 @@ import {
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   FlatList,
   LayoutChangeEvent,
@@ -25,7 +35,12 @@ import { auth, db } from "@/firebaseConfig";
 import { addCartLine, loadCart } from "@/lib/cart";
 import { createCartKey, useCartStore } from "@/store/cartStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { deleteDoc, doc, getDoc, setDoc } from "@react-native-firebase/firestore";
+import {
+  deleteDoc,
+  doc,
+  getDoc,
+  setDoc,
+} from "@react-native-firebase/firestore";
 
 // ── Extracted components ──────────────────────────────────────────────────────
 import { Analytics } from "@/lib/analytics";
@@ -78,19 +93,39 @@ const TABLET_MAX_CONTENT_WIDTH = 600;
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function ProductPage() {
+  const params = useLocalSearchParams<{ handle?: string | string[] }>();
+  const handle = Array.isArray(params.handle)
+    ? params.handle[0]
+    : (params.handle ?? "");
+  return <ProductPageContent key={handle} handle={handle} />;
+}
+
+function ProductPageContent({ handle }: { handle: string }) {
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
   const isTablet = screenWidth >= TABLET_BREAKPOINT;
   const insets = useSafeAreaInsets();
-  const { handle } = useLocalSearchParams();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: product,
+    loading,
+    offline,
+    error: productError,
+    refresh: retryProduct,
+  } = useCatalogQuery<Product>(handle ? productPath(handle) : null);
   const [loadingCart, setLoadingCart] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [wishlist, setWishlist] = useState(false);
-  const sessionUid = useAuthStore(state => state.user?.uid ?? null);
+  const sessionUid = useAuthStore((state) => state.user?.uid ?? null);
   const [viewedProducts, setViewedProducts] = useState<Product[]>([]);
-  const [exploreProducts, setExploreProducts] = useState<Product[]>([]);
+  const category = handle.includes("women") ? "women" : "men";
+  const { data: exploreData } = useCatalogQuery<Product[]>(
+    collectionPath(category),
+  );
+  const exploreProducts = useMemo(
+    () =>
+      (exploreData ?? []).filter((item) => item.handle !== handle).slice(0, 10),
+    [exploreData, handle],
+  );
   const [selectedOptions, setSelectedOptions] = useState<
     Record<string, string>
   >({});
@@ -117,10 +152,7 @@ export default function ProductPage() {
     const h = e.nativeEvent.layout.height;
     setCtaBarHeight((prev) => (prev !== h ? h : prev));
   }, []);
-  // Firebase analytics event tracking
-  useEffect(() => {
-    Analytics.screen("Product Details");
-  }, []);
+
   // Firebase analytics event tracking-2
   useEffect(() => {
     if (!product) return;
@@ -129,8 +161,17 @@ export default function ProductPage() {
       id: product.id,
       title: product.title,
       price: Number(product.price),
-      // category: product.,
     });
+  }, [product]);
+  // Meta analytics event tracking
+  useEffect(() => {
+    if (!product) return;
+    MetaAnalytics.viewProduct({
+      id: product.id,
+      title: product.title,
+      price: Number(product.price),
+    });
+    console.log("MetaAnalytics Viewd Product Event fired;");
   }, [product]);
 
   const handleReadMore = useCallback(() => {
@@ -151,7 +192,10 @@ export default function ProductPage() {
   const checkWishlistStatus = async () => {
     try {
       const user = auth.currentUser;
-      if (!user || !product) { setWishlist(false); return; }
+      if (!user || !product) {
+        setWishlist(false);
+        return;
+      }
       const cleanId = product.id.split("/").pop();
       const snap = await getDoc(
         doc(db, "users", user.uid, "wishlist", cleanId as string),
@@ -288,8 +332,15 @@ export default function ProductPage() {
         price: Number(selectedVariant.price),
         quantity: 1,
       });
-      setCartItems(cart);
+      MetaAnalytics.addToCart({
+        id: product.id,
+        title: product.title,
+        price: Number(selectedVariant.price),
+        quantity: 1,
+      });
+      console.log("MetaAnalytics Add to Cart Event fired;");
 
+      setCartItems(cart);
       setLoadingCart(false);
       setToastValue("Item added to cart");
       setToastLinkText("Go to Bag");
@@ -302,7 +353,7 @@ export default function ProductPage() {
     }
   };
 
-  // ── Buy now ─────────────────────────────────────────────────────────────────
+  // ---------------------- Buy now ----------------------------------
   const buyNow = async (product: Product) => {
     try {
       const optionName = product.options.find(
@@ -369,37 +420,17 @@ export default function ProductPage() {
   };
   // ── Fetch product ───────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const res = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/api/products/product/${handle}`,
-        );
-        const data = await res.json();
-        await saveRecentlyViewed(data);
-        setProduct(data);
-        // console.log(data);
-
-        const viewed = await viewRecentlyProducts();
-        setViewedProducts(viewed);
-
-        const category = handle?.toString().includes("women") ? "women" : "men";
-        const exploreRes = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${category}`,
-        );
-        const exploreData = await exploreRes.json();
-        const filtered = exploreData.filter(
-          (p: Product) => p.handle !== handle,
-        );
-        const shuffledExplore = filtered.sort(() => Math.random() - 0.5);
-        setExploreProducts(shuffledExplore.slice(0, 10));
-      } catch (e) {
-        console.log("Product fetch error:", e);
-      } finally {
-        setLoading(false);
-      }
+    if (!product) return;
+    let active = true;
+    void (async () => {
+      await saveRecentlyViewed(product);
+      const viewed = await viewRecentlyProducts();
+      if (active) setViewedProducts(viewed);
+    })();
+    return () => {
+      active = false;
     };
-    fetchProduct();
-  }, [handle]);
+  }, [product]);
   // Fetch Reviewss
   useEffect(() => {
     if (!product) return;
@@ -678,37 +709,50 @@ export default function ProductPage() {
         }}
       />
 
-      {loading ? (
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <Loader />
-        </View>
-      ) : !product ? (
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <Text style={{ color: "#999", fontSize: 15 }}>Product not found</Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={productListRef}
-          data={SECTIONS}
-          style={{ backgroundColor: "#fff" }}
-          keyExtractor={(item) => item.type}
-          showsVerticalScrollIndicator={false}
-          renderItem={renderSection}
-          onScrollToIndexFailed={() => {
-            requestAnimationFrame(() => {
-              productListRef.current?.scrollToIndex({
-                index: 2,
-                animated: true,
+      <CatalogLoadingBoundary
+        routeKey={handle}
+        loading={loading}
+        variant="product"
+        skipPreview={offline && !product}
+      >
+        {offline && !product ? (
+          <NoInternet onRetry={retryProduct} />
+        ) : !product ? (
+          <View
+            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+          >
+            <Text style={{ color: "#999", fontSize: 15 }}>
+              {productError || "Product not found"}
+            </Text>
+            {!!productError && (
+              <Pressable
+                onPress={() => void retryProduct()}
+                style={{ padding: 16 }}
+              >
+                <Text>Retry</Text>
+              </Pressable>
+            )}
+          </View>
+        ) : (
+          <FlatList
+            ref={productListRef}
+            data={SECTIONS}
+            style={{ backgroundColor: "#fff" }}
+            keyExtractor={(item) => item.type}
+            showsVerticalScrollIndicator={false}
+            renderItem={renderSection}
+            onScrollToIndexFailed={() => {
+              requestAnimationFrame(() => {
+                productListRef.current?.scrollToIndex({
+                  index: 2,
+                  animated: true,
+                });
               });
-            });
-          }}
-          ListFooterComponent={<View style={{ height: ctaBarHeight }} />}
-        />
-      )}
+            }}
+            ListFooterComponent={<View style={{ height: ctaBarHeight }} />}
+          />
+        )}
+      </CatalogLoadingBoundary>
 
       {/* ── Size selection modal ─────────────────────────────────────────────── */}
       <Modal

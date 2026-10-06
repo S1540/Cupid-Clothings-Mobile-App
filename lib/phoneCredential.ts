@@ -16,9 +16,16 @@ export async function applyPhoneCredential<T>(options: {
     await options.signIn(credential);
     return;
   }
-  if (!expectedUid || currentUser()?.uid !== expectedUid) throw { code: "auth/user-mismatch" };
+  if (!expectedUid || currentUser()?.uid !== expectedUid)
+    throw { code: "auth/user-mismatch" };
   // Credential collisions propagate. There is intentionally no merge/delete or
   // sign-in fallback here: linking must retain the authenticated original UID.
-  await (purpose === "link" ? options.link : purpose === "change" ? options.change : options.reauthenticate)(credential);
+  await (
+    purpose === "link"
+      ? options.link
+      : purpose === "change"
+        ? options.change
+        : options.reauthenticate
+  )(credential);
   if (currentUser()?.uid !== expectedUid) throw { code: "auth/user-mismatch" };
 }

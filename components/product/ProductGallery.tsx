@@ -1,8 +1,8 @@
 // components/product/ProductGallery.tsx
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import React from "react";
 import {
-  Image,
   Pressable,
   ScrollView,
   Text,
@@ -60,7 +60,8 @@ const ProductGallery = React.memo(
               key={i}
               source={{ uri: img.url }}
               style={{ width: screenWidth, height: galleryHeight }}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
             />
           ))}
         </Swiper>
@@ -155,7 +156,8 @@ const ProductGallery = React.memo(
                     borderWidth: activeImage === i ? 1.5 : 0.5,
                     borderColor: activeImage === i ? "#759EF0DB" : "#eee",
                   }}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
                 />
               </Pressable>
             ))}
