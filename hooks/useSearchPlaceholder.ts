@@ -54,5 +54,5 @@ export function useSearchPlaceholder(enabled = true) {
     return () => clearTimeout(timer);
   }, [enabled, focused, active, reduceMotion]);
 
-  return `Search Styles ${reduceMotion ? WORDS[0] : word}`;
+  return `Search ${reduceMotion ? WORDS[0] : word}`;
 }

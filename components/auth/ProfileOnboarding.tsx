@@ -2,15 +2,12 @@ import { Analytics } from "@/lib/analytics";
 import { ApiError, apiRequest } from "@/lib/api";
 import { useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { s } from "./PhoneOtpForm";
+  AuthScaffold,
+  AuthCard,
+  AuthField,
+  AuthError,
+  AuthButton,
+} from "./AuthUi";
 export default function ProfileOnboarding({
   onDone,
   initialProfile,
@@ -59,72 +56,61 @@ export default function ProfileOnboarding({
     }
   }
   return (
-    <SafeAreaView style={s.safe}>
-      <KeyboardAvoidingView
-        style={s.safe}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={s.page}
-        >
-          <Text style={s.brand}>WELCOME TO CUPID</Text>
-          <Text style={s.title}>Make yourself at home</Text>
-          <Text style={s.body}>
-            Your phone is verified. Add a name to finish setting up your
-            account.
-          </Text>
-          <TextInput
-            accessibilityLabel="Your name"
-            style={s.row}
-            value={userName}
-            onChangeText={setName}
-            placeholder="Your name"
-            maxLength={100}
-            editable={!busy}
-            autoComplete="name"
-          />
-          <TextInput
-            accessibilityLabel="Contact email, optional"
-            style={[s.row, { marginTop: 16, padding: 14 }]}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email (optional)"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            maxLength={254}
-            editable={!busy}
-          />
-          <Text style={s.small}>
-            Useful for receipts and help finding previous orders. No email
-            verification is needed to sign in.
-          </Text>
-          <TextInput
-            accessibilityLabel="Referral code, optional"
-            style={[s.row, { marginTop: 16, padding: 14 }]}
-            value={referralCode}
-            onChangeText={setReferral}
-            placeholder="Referral code (optional)"
-            autoCapitalize="characters"
-            maxLength={20}
-            editable={!busy}
-          />
-          {!!error && (
-            <Text accessibilityRole="alert" style={s.error}>
-              {error}
-            </Text>
-          )}
-          <Pressable
-            disabled={busy}
-            onPress={() => void save()}
-            style={s.button}
-          >
-            <Text style={s.buttonText}>
-              {busy ? "Saving…" : "Start shopping"}
-            </Text>
-          </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <AuthScaffold
+      eyebrow="YOUR CUPID PROFILE"
+      title="Make yourself at home"
+      description="Your phone is verified. Add your name and you're ready to explore."
+      icon="person-outline"
+      busy={busy}
+    >
+      <AuthCard>
+        <AuthField
+          label="Full name"
+          icon="person-outline"
+          value={userName}
+          onChangeText={setName}
+          placeholder="Enter your name"
+          maxLength={100}
+          editable={!busy}
+          autoComplete="name"
+          textContentType="name"
+          autoCapitalize="words"
+        />
+        <AuthField
+          label="Email address"
+          optional
+          icon="mail-outline"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
+          maxLength={254}
+          editable={!busy}
+          hint="Useful for receipts and help with previous orders. No email verification needed."
+        />
+        <AuthField
+          label="Referral code"
+          optional
+          icon="gift-outline"
+          value={referralCode}
+          onChangeText={setReferral}
+          placeholder="Enter referral code"
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={20}
+          editable={!busy}
+        />
+        <AuthError message={error} />
+        <AuthButton
+          title={busy ? "Saving..." : "Start shopping"}
+          busy={busy}
+          onPress={() => void save()}
+        />
+      </AuthCard>
+    </AuthScaffold>
   );
 }

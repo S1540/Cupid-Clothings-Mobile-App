@@ -13,14 +13,13 @@ import {
   Animated,
   FlatList,
   Image,
+  Linking,
   Pressable,
   StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Linking,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 

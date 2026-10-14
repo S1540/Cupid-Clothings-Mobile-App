@@ -1,42 +1,39 @@
-import React, { useEffect, useState } from "react";
-import * as Location from "expo-location";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  Switch,
-  StatusBar,
-} from "react-native";
-import {
-  Ionicons,
-  Feather,
-  MaterialIcons,
-  AntDesign,
-  EvilIcons,
-} from "@expo/vector-icons";
-import { Stack } from "expo-router";
-import { useRouter } from "expo-router";
-import { useCartStore } from "@/store/cartStore";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import CircleLoader from "@/components/ui/CircleLoader";
 import { auth, db } from "@/firebaseConfig";
 import { useAuthStore } from "@/store/authStore";
-import { useLocalSearchParams } from "expo-router";
+import { useCartStore } from "@/store/cartStore";
 import {
-  doc,
-  setDoc,
-  collection,
-  updateDoc,
-  serverTimestamp,
-  getDocs,
+  AntDesign,
+  EvilIcons,
+  Feather,
+  Ionicons,
+  MaterialIcons,
+} from "@expo/vector-icons";
+import {
   addDoc,
+  collection,
+  doc,
   getDoc,
+  getDocs,
+  serverTimestamp,
+  updateDoc,
 } from "@react-native-firebase/firestore";
-import CircleLoader from "@/components/ui/CircleLoader";
+import * as Location from "expo-location";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ─── Tokens -----------------------------------
 const C = {
@@ -354,10 +351,15 @@ const DeliveryAddress = () => {
     return Object.keys(e).length === 0;
   };
   // fetch data (if any edit mode on)
-  const sessionUid = useAuthStore(state => state.user?.uid ?? null);
+  const sessionUid = useAuthStore((state) => state.user?.uid ?? null);
   useEffect(() => {
     let active = true;
-    setFullName(""); setMobile(""); setAltMobile(""); setFlat(""); setArea(""); setLandmark("");
+    setFullName("");
+    setMobile("");
+    setAltMobile("");
+    setFlat("");
+    setArea("");
+    setLandmark("");
     const loadAddress = async () => {
       try {
         if (!addressId) return;
@@ -393,7 +395,9 @@ const DeliveryAddress = () => {
     };
 
     loadAddress();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [addressId, sessionUid]);
 
   // Save Data To DB firebase

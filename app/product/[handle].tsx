@@ -674,7 +674,7 @@ function ProductPageContent({ handle }: { handle: string }) {
                 onPress={() => router.push("/Cart")}
                 style={{ padding: 6 }}
               >
-                <Ionicons name="cart-outline" size={26} color="#555" />
+                <Ionicons name="bag-outline" size={26} color="#555" />
               </Pressable>
               {cartCount > 0 && (
                 <View

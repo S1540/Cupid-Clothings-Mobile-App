@@ -4,13 +4,11 @@ import { monitorConnection } from "@/lib/network";
 import "@/store/catalogStore";
 import CustomSplash from "@/components/ui/CustomSplash";
 import { db } from "@/firebaseConfig";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { Analytics } from "@/lib/analytics";
 import { loadCart } from "@/lib/cart";
 import { useCartStore } from "@/store/cartStore";
 import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
 import {
-  DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
@@ -30,7 +28,7 @@ import { useWishlistStore } from "@/store/wishliststore";
 import { recoverLegacySession, signOutAllSessions, bootstrapProfile } from "@/lib/auth";
 import { useOrderSubscription } from "@/hooks/useOrderSubscription";
 import { setSessionScope } from "@/lib/sessionScope";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Platform } from "react-native";
 import SessionNotice from "@/components/auth/SessionNotice";
 import "./constants/mapbox";
 
@@ -48,7 +46,6 @@ export default function RootLayout() {
     uid: string;
     tags: Record<string, string>;
   } | null>(null);
-  const colorScheme = useColorScheme();
   const pathname = usePathname();
   const setUser = useUserStore((state) => state.setUser);
   const clearUser = useUserStore((state) => state.clearUser);
@@ -199,8 +196,13 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        {sessionReady ? <><SessionNotice onRetry={() => setRecoveryAttempt(value => value + 1)} /><Stack>
+      <ThemeProvider value={DefaultTheme}>
+        {sessionReady ? <><SessionNotice onRetry={() => setRecoveryAttempt(value => value + 1)} /><Stack screenOptions={{
+          // Match the app's light screens while native routes enter/leave.
+          contentStyle: { backgroundColor: "#FFFFFF" },
+          // Use a translation-only transition instead of Android's system fade.
+          animation: Platform.OS === "android" ? "slide_from_right" : "default",
+        }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack></> : <View style={{ flex: 1, justifyContent: "center", padding: 28, backgroundColor: "#fff7f8" }}>
           <Text accessibilityRole="alert">{sessionError || "Restoring your Cupid account…"}</Text>

@@ -16,17 +16,17 @@ import {
 } from "@react-native-firebase/auth";
 import { Stack, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, Text } from "react-native";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import PhoneOtpForm, { s } from "./PhoneOtpForm";
+  a,
+  AUTH_COLORS,
+  AuthScaffold,
+  AuthCard,
+  AuthField,
+  AuthButton,
+  AuthError,
+} from "./AuthUi";
+import PhoneOtpForm from "./PhoneOtpForm";
 import ProfileOnboarding from "./ProfileOnboarding";
 
 const destinations = new Set([
@@ -292,91 +292,84 @@ export default function PhoneAuthScreen() {
     );
   if (stage === "finish")
     return (
-      <SafeAreaView style={s.safe}>
-        <View style={s.page}>
-          <Text style={s.title}>Finishing sign-in</Text>
-          <Text style={s.body}>{error || "Loading your Cupid profile…"}</Text>
-          {!!error && (
-            <Pressable style={s.button} onPress={() => void finish()}>
-              <Text style={s.buttonText}>Retry</Text>
-            </Pressable>
+      <AuthScaffold
+        eyebrow="WELCOME TO CUPID"
+        title="Finishing sign-in"
+        description="Loading your Cupid profile..."
+        icon="shield-checkmark-outline"
+      >
+        <Stack.Screen options={{ headerShown: false }} />
+        <AuthCard>
+          <AuthError message={error} />
+          {error ? (
+            <AuthButton title="Retry" onPress={() => void finish()} />
+          ) : (
+            <ActivityIndicator color={AUTH_COLORS.accent} />
           )}
-        </View>
-      </SafeAreaView>
+        </AuthCard>
+      </AuthScaffold>
     );
   if (stage === "legacy")
     return (
-      <SafeAreaView style={s.safe}>
+      <AuthScaffold
+        eyebrow="WELCOME BACK"
+        title="Keep your existing account"
+        description="Sign in with your existing email and password, then verify your phone. Your orders, coins and referral rewards stay on the same account."
+        icon="person-circle-outline"
+        busy={busy}
+        onBack={() => {
+          setPassword("");
+          setError("");
+          setStage("phone");
+        }}
+      >
         <Stack.Screen options={{ headerShown: false }} />
-        <KeyboardAvoidingView
-          style={s.safe}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        <AuthCard>
+          <AuthField
+            label="Email address"
+            icon="mail-outline"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            editable={!busy}
+          />
+          <AuthField
+            label="Password"
+            icon="lock-closed-outline"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Enter your password"
+            secureTextEntry
+            autoComplete="current-password"
+            editable={!busy}
+          />
+          <AuthError message={error} />
+          <AuthButton
+            disabled={!email.trim() || !password}
+            busy={busy}
+            title={
+              busy
+                ? "Signing in..."
+                : params.mode === "reauth"
+                  ? "Verify account"
+                  : "Sign in and link phone"
+            }
+            onPress={() => void legacyLogin()}
+          />
+        </AuthCard>
+        <Pressable
+          style={a.secondary}
+          onPress={() => router.push("/Helpcenter")}
         >
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={s.page}
-          >
-            <Text style={s.title}>Keep your existing account</Text>
-            <Text style={s.body}>
-              Sign in with your existing email and password, then verify your
-              phone. Your orders, coins and referral rewards stay on the same
-              account. Email verification isn&apos;t required.
-            </Text>
-            <TextInput
-              style={[s.row, { padding: 15 }]}
-              accessibilityLabel="Existing account email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!busy}
-            />
-            <TextInput
-              style={[s.row, { padding: 15, marginTop: 12 }]}
-              accessibilityLabel="Existing account password"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Password"
-              secureTextEntry
-              autoComplete="current-password"
-              editable={!busy}
-            />
-            {!!error && (
-              <Text accessibilityRole="alert" style={s.error}>
-                {error}
-              </Text>
-            )}
-            <Pressable
-              disabled={busy || !email.trim() || !password}
-              style={s.button}
-              onPress={() => void legacyLogin()}
-            >
-              <Text style={s.buttonText}>
-                {busy ? "Signing in…" : "Sign in and link phone"}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={s.secondary}
-              onPress={() => router.push("/Helpcenter")}
-            >
-              <Text style={s.link}>
-                Need help recovering your existing account?
-              </Text>
-            </Pressable>
-            <Pressable
-              disabled={busy}
-              onPress={() => {
-                setPassword("");
-                setError("");
-                setStage("phone");
-              }}
-            >
-              <Text style={s.link}>Back to phone sign-in</Text>
-            </Pressable>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+          <Text style={a.link}>
+            Need help recovering your existing account?
+          </Text>
+        </Pressable>
+      </AuthScaffold>
     );
   return (
     <>
@@ -409,14 +402,6 @@ export default function PhoneAuthScreen() {
           verification.current = "";
         }}
         onBack={() => router.back()}
-        onExistingAccount={
-          !linkingUid
-            ? () => {
-                setError("");
-                setStage("legacy");
-              }
-            : undefined
-        }
       />
     </>
   );

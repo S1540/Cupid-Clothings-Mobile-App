@@ -48,6 +48,7 @@ test('HTTP checkout: phone-only ownership, signed order, tracking and cross-acco
       const input = JSON.parse(init.body).variables.input;
       assert.deepEqual(input.buyerIdentity, { phone: '+919000000000' });
       assert.deepEqual(input.lines, [{ merchandiseId: 'gid://shopify/ProductVariant/123', quantity: 2 }]);
+      assert.deepEqual(input.attributes, [{ key: 'mobile_order_source', value: 'Mobile App' }]);
       return { ok: true, json: async () => ({ data: { cartCreate: { cart: { id: cartId, checkoutUrl: 'https://example.test/checkout', totalQuantity: 2 }, userErrors: [] } } }) };
     });
     const app = express();

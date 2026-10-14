@@ -9,6 +9,7 @@ import {
   ScrollView,
   StatusBar,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +33,7 @@ export default function Header({
   const router = useRouter();
   const searchPlaceholder = useSearchPlaceholder();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   return (
     // ─── FIX 1: position absolute so it floats over the carousel ───
     <View
@@ -80,18 +82,26 @@ export default function Header({
         }}
       >
         <Feather name="truck" size={13} color="#fff" />
-        <Text className="text-white text-xs font-semibold tracking-wide">
+        <Text className="text-white text-xs font-semibold tracking-wide">  
           Free Shipping On All Prepaid Orders
         </Text>
       </Animated.View> */}
 
       {/* HEADER ROW */}
-      <View className="flex-row items-center justify-between px-[18px] py-3.5 gap-2.5">
+      <View className="flex-row items-center justify-between px-4 py-3.5 gap-2">
         {/* LOGO */}
         <Pressable onPress={() => router.push("/")}>
-          <View className="w-24 h-[38px] items-center justify-center">
+          <View
+            style={{
+              width: Math.min(88, width * 0.21),
+              height: 38,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <Image
               source={require("../assets/images/Cupid.png")}
+              resizeMode="contain"
               className="w-full h-full"
             />
           </View>
@@ -102,24 +112,28 @@ export default function Header({
           onPress={() => router.push("./Search")}
           accessibilityRole="button"
           accessibilityLabel="Search products"
+          hitSlop={{ top: 3, bottom: 3 }}
           style={{
             flex: 1,
+            minWidth: 0,
             flexDirection: "row",
             alignItems: "center",
             backgroundColor: "rgba(255,255,255,0.55)", // glass pill
             borderRadius: 30,
             borderWidth: 1.5,
             borderColor: "rgba(243,215,221,0.7)",
-            height: 40,
-            paddingHorizontal: 12,
-            gap: 8,
-            marginHorizontal: 8,
+            minHeight: 38,
+            paddingVertical: 5,
+            paddingHorizontal: 10,
+            gap: 6,
           }}
         >
           <Feather name="search" size={15} color="#ff5c84" />
           <Text
             numberOfLines={1}
-            style={{ flex: 1, fontSize: 13, color: "#c4a0a8" }}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#927185" }}
           >
             {searchPlaceholder}
           </Text>
@@ -164,7 +178,7 @@ export default function Header({
           paddingHorizontal: 18,
           paddingBottom: 4,
           gap: 28,
-          flex: 1,
+          flexGrow: 1,
           flexDirection: "row",
           justifyContent: "space-between",
         }}
@@ -177,8 +191,10 @@ export default function Header({
               onPress={() => setActiveNav(item)}
               hitSlop={20}
               className="items-center gap-1"
+              style={{ flexShrink: 0 }}
             >
               <Text
+                numberOfLines={1}
                 className={`text-sm tracking-wide ${isActive ? "text-[#ff5c84] font-bold" : "text-[#555] font-medium"}`}
               >
                 {item}

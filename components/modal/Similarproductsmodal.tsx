@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
 import React, {
   useCallback,
   useMemo,
@@ -160,6 +161,7 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
   product,
   onClose,
 }) => {
+  const focused = useIsFocused();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const CARD_WIDTH = useMemo(() => getCardWidth(screenWidth), [screenWidth]);
   const MODAL_HEIGHT = useMemo(
@@ -179,6 +181,14 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
    * Drive the open/close animation whenever `visible` changes.
    */
   useEffect(() => {
+    if (!focused) {
+      overlayAnim.stopAnimation();
+      slideAnim.stopAnimation();
+      overlayAnim.setValue(0);
+      slideAnim.setValue(MODAL_HEIGHT);
+      setIsRendered(false);
+      return;
+    }
     if (visible) {
       setIsRendered(true);
       Animated.parallel([
@@ -211,7 +221,14 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
         }
       });
     }
-  }, [visible, overlayAnim, slideAnim, MODAL_HEIGHT]);
+    return () => {
+      overlayAnim.stopAnimation();
+      slideAnim.stopAnimation();
+    };
+  }, [visible, focused, overlayAnim, slideAnim, MODAL_HEIGHT]);
+  useEffect(() => {
+    if (!focused && visible) onClose();
+  }, [focused, visible, onClose]);
   // fetch product data according product id or show in similar products modal //
   useEffect(() => {
     if (!visible || !product?.id) return;
@@ -278,12 +295,13 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
         cardWidth={CARD_WIDTH}
         onPress={() => {
           setIsRendered(false);
+          onClose();
           router.push(`/product/${item.handle}`);
           return;
         }}
       />
     ),
-    [recommendedProducts.length, CARD_WIDTH],
+    [recommendedProducts.length, CARD_WIDTH, onClose, router],
   );
 
   const getItemLayout = useCallback(
@@ -303,7 +321,7 @@ const SimilarProductsModal: React.FC<SimilarProductsModalProps> = ({
 
   return (
     <Modal
-      visible={isRendered}
+      visible={isRendered && focused}
       transparent
       animationType="none"
       statusBarTranslucent

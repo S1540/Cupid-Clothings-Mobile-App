@@ -4,6 +4,7 @@ const {
   saveOrderToFirebase,
   updateTrackingStatus,
 } = require("../services/orderService");
+const { tagMobileAppOrder } = require("../services/shopifyOrderTagService");
 const { fetchRecommendedProducts } = require("../services/shopifyService");
 const { verifyShopifyWebhook, verifyShiprocketWebhook } = require("../middleware/verifyWebhooks");
 
@@ -11,7 +12,7 @@ router.post("/shopify/order-created", verifyShopifyWebhook, async (req, res) => 
   try {
     const order = req.body;
     await saveOrderToFirebase(order);
-    // res.send("OK");
+    await tagMobileAppOrder(order);
     res.status(200).send("OK");
   } catch (error) {
     res.status(error.status || 500).json({

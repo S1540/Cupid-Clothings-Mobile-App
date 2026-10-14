@@ -1,4 +1,5 @@
 import CartSkeleton from "@/components/CartSkeleton";
+import FirstOrderOffer from "@/components/cart/FirstOrderOffer";
 import LoginModel from "@/components/modal/LoginModel";
 import SignUpModel from "@/components/modal/SignUpModel";
 import SuccessToast from "@/components/SuccessToast";
@@ -997,7 +998,7 @@ const EmptyCart = React.memo(({ onShop }: { onShop: () => void }) => (
       }}
       maxFontSizeMultiplier={FONT_SCALE_NORMAL}
     >
-      Your bag is empty
+      Your cart is empty
     </Text>
 
     <Text
@@ -1282,11 +1283,12 @@ export default function Cart() {
           </View>
         </Pressable>
 
+        <FirstOrderOffer />
         <View style={S.gap8} />
 
         <View style={S.bagRow}>
           <Text style={S.bagTitle} maxFontSizeMultiplier={FONT_SCALE_NORMAL}>
-            My Bag <Text style={S.bagCount}>({cartCount})</Text>
+            My Cart <Text style={S.bagCount}>({cartCount})</Text>
           </Text>
         </View>
       </View>
@@ -1453,7 +1455,7 @@ export default function Cart() {
               style={{ fontSize: 16, fontWeight: "700", color: C.black }}
               maxFontSizeMultiplier={FONT_SCALE_NORMAL}
             >
-              Bag
+              Cart
             </Text>
           ),
           headerShadowVisible: false,

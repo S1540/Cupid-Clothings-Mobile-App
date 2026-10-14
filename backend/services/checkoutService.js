@@ -28,7 +28,7 @@ function createCheckoutService(db, fetchImpl = fetch) {
     const response = await fetchImpl(`https://${domain}/api/${version}/graphql.json`, {
       method: "POST", signal: AbortSignal.timeout(15000),
       headers: { "Content-Type": "application/json", "X-Shopify-Storefront-Access-Token": token },
-      body: JSON.stringify({ query: "mutation Cart($input: CartInput!) { cartCreate(input: $input) { cart { id checkoutUrl totalQuantity } userErrors { field message } } }", variables: { input: { lines, ...(Object.keys(buyerIdentity).length ? { buyerIdentity } : {}) } } }),
+      body: JSON.stringify({ query: "mutation Cart($input: CartInput!) { cartCreate(input: $input) { cart { id checkoutUrl totalQuantity } userErrors { field message } } }", variables: { input: { lines, attributes: [{ key: "mobile_order_source", value: "Mobile App" }], ...(Object.keys(buyerIdentity).length ? { buyerIdentity } : {}) } } }),
     });
     const result = await response.json();
     const cart = result.data?.cartCreate?.cart;

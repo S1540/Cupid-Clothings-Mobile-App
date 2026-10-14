@@ -267,7 +267,7 @@ test("checkout prefills verified phone and optional profile email without exposi
       const create = createCheckoutService(db, async (_url, options) => {
         const input = JSON.parse(options.body).variables.input;
         assert.deepEqual(input.buyerIdentity, { phone: account.phoneNumber, ...(email ? { email } : {}) });
-        assert.equal(input.attributes, undefined);
+        assert.deepEqual(input.attributes, [{ key: "mobile_order_source", value: "Mobile App" }]);
         return { ok: true, json: async () => ({ data: { cartCreate: { cart: { id: "gid://shopify/Cart/phone-cart?key=secret", checkoutUrl: "https://example.test/checkout" }, userErrors: [] } } }) };
       });
       await create("phone", [{ merchandiseId: "gid://shopify/ProductVariant/1", quantity: 1 }], account.phoneNumber);

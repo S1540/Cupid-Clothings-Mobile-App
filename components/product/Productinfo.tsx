@@ -1,20 +1,10 @@
-import { Entypo, MaterialIcons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import React from "react";
+import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import * as Clipboard from "expo-clipboard";
-import { LinearGradient } from "expo-linear-gradient";
 import { useCartStore } from "@/store/cartStore";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-  Easing,
-} from "react-native-reanimated";
 import BundleProgress from "./BunleProgress";
+import PaymentOffers from "./PaymentOffers";
 
 type Variant = {
   id: string;
@@ -51,121 +41,6 @@ type ProductInfoProps = {
   onReadMore?: () => void;
 };
 
-// ─── Coupon data (replace with API data later if needed) ───────────────────
-type Coupon = {
-  code: string;
-  title: string;
-  description: string;
-  brand: string;
-};
-
-const COUPONS: Coupon[] = [
-  {
-    code: "WELCUPID10",
-    title: "Extra 10% OFF",
-    description: "10% Off On Your First Order Using This Code",
-    brand: "CUPID",
-  },
-  {
-    code: "FLAT250",
-    title: "FLAT 250 OFF",
-    description: "Get instant discount of 250 off on above ₹1999",
-    brand: "CUPID",
-  },
-];
-
-// ─── Coupon Card ─────────────────────────────────────────────────────────
-const CouponCard = React.memo(({ coupon }: { coupon: Coupon }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    await Clipboard.setStringAsync(coupon.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  }, [coupon.code]);
-
-  // ── Shimmer sweep (more noticeable now) ──────────────────────────────────
-  const shimmerX = useSharedValue(-1);
-  useEffect(() => {
-    shimmerX.value = withRepeat(
-      withSequence(
-        withDelay(
-          1200,
-          withTiming(1, {
-            duration: 950,
-            easing: Easing.inOut(Easing.ease),
-          }),
-        ),
-        withTiming(-1, { duration: 0 }),
-      ),
-      -1,
-      false,
-    );
-  }, []);
-
-  const shimmerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shimmerX.value * 220 }, { rotate: "18deg" }],
-  }));
-
-  const pulse = useSharedValue(0);
-  useEffect(() => {
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 900, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      true,
-    );
-  }, []);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: 0.55 + pulse.value * 0.45,
-  }));
-
-  return (
-    <View style={styles.couponCard}>
-      {/* shimmer sweep overlay — wider + brighter for visibility */}
-      <View pointerEvents="none" style={styles.shimmerClip}>
-        <Animated.View style={[styles.shimmerBar, shimmerStyle]}>
-          <LinearGradient
-            colors={[
-              "transparent",
-              "#ffffff99",
-              "#ffffffcc",
-              "#ffffff99",
-              "transparent",
-            ]}
-            locations={[0, 0.35, 0.5, 0.65, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ flex: 1 }}
-          />
-        </Animated.View>
-      </View>
-
-      <View style={styles.couponTopRow}>
-        <Text style={styles.couponTitle}>{coupon.title}</Text>
-        <MaterialIcons name="local-offer" size={14} color="#759EF0" />
-      </View>
-
-      <Text style={styles.couponDescription} numberOfLines={2}>
-        {coupon.description}
-      </Text>
-
-      <View style={styles.couponBottomRow}>
-        <Animated.View style={[styles.codeChip, pulseStyle]}>
-          <Text style={styles.codeChipText}>{coupon.code}</Text>
-        </Animated.View>
-        <Pressable onPress={handleCopy} hitSlop={8}>
-          <Text style={styles.copyText}>
-            {copied ? "Copied!" : "Copy Code"}
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-});
 const ProductInfo = React.memo(
   ({
     product,
@@ -395,22 +270,7 @@ const ProductInfo = React.memo(
           );
         })}
 
-        <View style={styles.saveMoreSection}>
-          <Text style={styles.saveMoreTitle}>Save More</Text>
-          <Text style={styles.saveMoreSubtitle}>
-            Apply coupons during checkout
-          </Text>
-
-          <FlatList
-            data={COUPONS}
-            keyExtractor={(item) => item.code}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingRight: 16, paddingTop: 12 }}
-            renderItem={({ item }) => <CouponCard coupon={item} />}
-            ItemSeparatorComponent={() => <View style={{ width: 10 }} />}
-          />
-        </View>
+        <PaymentOffers />
         <BundleProgress currentItemsInCart={cartCount} maxItems={3} />
         <View style={{ height: 0.5, backgroundColor: "#f0f0f0" }} />
       </View>
@@ -418,95 +278,5 @@ const ProductInfo = React.memo(
   },
 );
 
+ProductInfo.displayName = "ProductInfo";
 export default ProductInfo;
-
-// ─── Styles ─────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  saveMoreSection: {
-    marginTop: 12,
-    paddingTop: 14,
-    paddingBottom: 4,
-    borderTopWidth: 0.5,
-    borderTopColor: "#6D6C6C30",
-  },
-  saveMoreTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111",
-  },
-  saveMoreSubtitle: {
-    fontSize: 12.5,
-    color: "#888",
-    marginTop: 2,
-  },
-  couponCard: {
-    width: 250,
-    backgroundColor: "#F6F9FF",
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#759EF04A",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    overflow: "hidden",
-    // subtle premium glow
-    shadowColor: "#759EF0",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  shimmerClip: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-    borderRadius: 10,
-  },
-  shimmerBar: {
-    position: "absolute",
-    top: -40,
-    left: -60,
-    width: 30,
-    height: 220,
-  },
-  couponTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 3,
-  },
-  couponTitle: {
-    fontSize: 13.5,
-    fontWeight: "700",
-    color: "#1c2b57",
-  },
-  couponDescription: {
-    fontSize: 11.5,
-    color: "#6b7a99",
-    lineHeight: 15,
-    marginBottom: 8,
-  },
-  couponBottomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  codeChip: {
-    borderWidth: 1,
-    borderColor: "#759EF0",
-    borderStyle: "dashed",
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: "#759EF014",
-  },
-  codeChipText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#4A6FD6",
-    letterSpacing: 0.8,
-  },
-  copyText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#4A6FD6",
-  },
-});

@@ -1,5 +1,6 @@
 // components/ui/PromoHotDeals.tsx
 import React, { useEffect, useMemo } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import {
   FlatList,
   ImageBackground,
@@ -10,6 +11,7 @@ import {
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import Animated, {
+  cancelAnimation,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -102,9 +104,11 @@ export function AnimatedHeading({
   style,
 }: AnimatedHeadingProps) {
   const letters = useMemo(() => text.split(""), [text]);
+  const focused = useIsFocused();
   const progress = useSharedValue(0);
 
   useEffect(() => {
+    if (!focused) return;
     progress.value = 0;
     progress.value = withRepeat(
       withTiming(letters.length, {
@@ -114,7 +118,8 @@ export function AnimatedHeading({
       -1,
       false,
     );
-  }, [letters.length, letterDuration]);
+    return () => cancelAnimation(progress);
+  }, [focused, letters.length, letterDuration, progress]);
 
   return (
     <View style={[styles.headingRow, style]}>

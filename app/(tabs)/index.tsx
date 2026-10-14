@@ -4,7 +4,6 @@ import LoginRewardModal from "@/components/modal/Loginrewardmodal";
 import Similarproductsmodal from "@/components/modal/Similarproductsmodal";
 import CircleLoader from "@/components/ui/CircleLoader";
 import ComfortCategoryGrid from "@/components/ui/ComfortCategoryGrid";
-import HomeSkeleton from "@/components/ui/HomeSkeleton";
 import KidsCollections from "@/components/ui/KidsCollection";
 import ProductCard from "@/components/ui/ProductCrad";
 import PromoHotDeals from "@/components/ui/PromoHotDeals";
@@ -12,6 +11,7 @@ import RecommendedProductsSection from "@/components/ui/RecommendedProductsSecti
 // import { auth } from "@/firebaseConfig";
 import { Marquee } from "@animatereactnative/marquee";
 import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
+import { useIsFocused } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -24,6 +24,7 @@ import React, {
   useState,
 } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   ListRenderItem,
   Modal,
@@ -37,7 +38,10 @@ import {
 } from "react-native";
 
 import WarrningLable from "@/components/WarrningLable";
+import { useCatalogQuery } from "@/hooks/useCatalogQuery";
 import { Analytics } from "@/lib/analytics";
+import { configureHorizontalCarouselPan } from "@/lib/horizontalCarouselGesture";
+import { collectionPath, fetchCatalog } from "@/store/catalogStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Carousel from "react-native-reanimated-carousel";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -80,6 +84,8 @@ type FilterState = {
 };
 
 const DEFAULT_IMAGE = "";
+const EMPTY_PRODUCTS: Product[] = [];
+const EMPTY_BANNERS: BannerItem[] = [];
 
 // Kidss Scroller Data
 const ANNOUNCEMENTS = [
@@ -151,6 +157,7 @@ const HomeListHeader = React.memo(
     kidsProducts,
     renderProduct,
   }: HomeListHeaderProps) => {
+    const focused = useIsFocused();
     const [activeSlide, setActiveSlide] = useState(0);
     useEffect(() => {
       onSnapRef.current = setActiveSlide;
@@ -196,11 +203,12 @@ const HomeListHeader = React.memo(
           loop
           width={carouselWidth}
           height={bannerHeight}
-          autoPlay
+          autoPlay={focused}
           autoPlayInterval={3000}
           onSnapToItem={setActiveSlide}
           data={banners}
           scrollAnimationDuration={700}
+          onConfigurePanGesture={configureHorizontalCarouselPan}
           renderItem={renderBannerItem}
         />
         <View style={styles.dotsRow}>
@@ -234,10 +242,11 @@ const HomeListHeader = React.memo(
               loop
               width={carouselWidth - 20}
               height={offerHeight}
-              autoPlay
+              autoPlay={focused}
               autoPlayInterval={4000}
               data={offers}
               scrollAnimationDuration={700}
+              onConfigurePanGesture={configureHorizontalCarouselPan}
               renderItem={renderOfferItem}
             />
           </View>
@@ -321,17 +330,22 @@ const HomeListHeader = React.memo(
               colors={["#F87387", "#B85CC9", "#759EF0DB"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={{ flexDirection: "row", height: 40 }}
+              style={{ flexDirection: "row", minHeight: 40 }}
             >
               <View
                 style={{
-                  width: 140,
+                  maxWidth: "60%",
+                  flexShrink: 0,
                   justifyContent: "center",
-                  paddingLeft: 14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
                   backgroundColor: "rgba(0,0,0,0.12)",
                 }}
               >
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
                   style={{
                     color: "#fff",
                     fontSize: 12.5,
@@ -346,11 +360,12 @@ const HomeListHeader = React.memo(
               <View
                 style={{
                   flex: 1,
+                  minWidth: 0,
                   overflow: "hidden",
                   justifyContent: "center",
                 }}
               >
-                <Marquee>
+                <Marquee speed={focused ? 1 : 0}>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     {ANNOUNCEMENTS.map((item, i) => (
                       <View
@@ -358,6 +373,7 @@ const HomeListHeader = React.memo(
                         style={{ flexDirection: "row", alignItems: "center" }}
                       >
                         <Text
+                          numberOfLines={1}
                           style={{
                             color: "#fff",
                             fontSize: 12.5,
@@ -402,13 +418,6 @@ const HomeListHeader = React.memo(
       </>
     );
   },
-  (prev, next) =>
-    prev.banners === next.banners &&
-    prev.categories === next.categories &&
-    prev.carouselWidth === next.carouselWidth &&
-    prev.bannerHeight === next.bannerHeight &&
-    prev.offerHeight === next.offerHeight &&
-    prev.renderCategory === next.renderCategory,
 );
 
 // ─── CategoryItem ---------------------------------------------
@@ -631,19 +640,25 @@ const FilterModal = memo(
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function Index() {
+  const focused = useIsFocused();
+  const interestedSnapshot = useRef<string | null | undefined>(undefined);
   const [loginRewardModal, setLoginRewardModal] = useState(false);
   // const [showSignup, setShowSignup] = useState(false);
   const [claimedOffer, setClaimedOffer] = useState<number | null>(null);
   const [activeNav, setActiveNav] = useState("Women");
+  const [switchingNav, setSwitchingNav] = useState(false);
   const [searchText] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [pullToRefresh, setPullToRefresh] = useState(false);
+  const [refreshingHandle, setRefreshingHandle] = useState<string | null>(null);
   const [menuData, setMenuData] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [filterVisible, setFilterVisible] = useState(false);
   const [similarModal, setSimilarModal] = useState(false);
+  useEffect(() => {
+    if (!focused) {
+      setFilterVisible(false);
+      setSimilarModal(false);
+      setSwitchingNav(false);
+    }
+  }, [focused]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [interestedProducts, setInterestedProducts] = useState<Product[]>([]);
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
@@ -658,12 +673,34 @@ export default function Index() {
   const showHomeLayout = activeNav === "Women" || activeNav === "Men";
   const collectionHandle =
     activeNav === "Best Sellers" ? "bestseller" : activeNav.toLowerCase();
+  // Home layouts don't render collection products. Product tabs read their own
+  // cached entry immediately, so a late response cannot replace another tab.
+  const productsQuery = useCatalogQuery<Product[]>(
+    showHomeLayout ? null : collectionPath(collectionHandle),
+  );
+  const allProducts = productsQuery.data ?? EMPTY_PRODUCTS;
+  const pullToRefresh = refreshingHandle === collectionHandle;
+  const listRef = useRef<FlatList<Product>>(null);
+  const selectNav = useCallback(
+    (nav: string) => {
+      if (nav === activeNav) return;
+      setSwitchingNav(true);
+      setActiveNav(nav);
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    },
+    [activeNav],
+  );
+  useEffect(() => {
+    // Keep transition feedback brief even when products are already cached.
+    // Cleanup restarts the interval when the user quickly selects another tab.
+    const timer = setTimeout(() => setSwitchingNav(false), 150);
+    return () => clearTimeout(timer);
+  }, [activeNav]);
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const snapRef = useRef<((index: number) => void) | null>(null);
-  const isFirstLoad = useRef(true);
   const prefetchedImages = useRef<Set<string>>(new Set());
-  const banners = BANNERS[activeNav] ?? [];
+  const banners = BANNERS[activeNav] ?? EMPTY_BANNERS;
   const BANNER_RATIO = 1345 / 895;
   const bannerHeight = Math.round(width * BANNER_RATIO);
   const offerHeight = Math.round(width * 0.24);
@@ -721,7 +758,7 @@ export default function Index() {
         Image.prefetch(b.image).catch(() => {});
       }
     });
-  }, [activeNav]);
+  }, [banners]);
 
   const filteredProducts = useMemo(
     () =>
@@ -757,28 +794,11 @@ export default function Index() {
     fetchReviewSummary();
   }, []);
 
-  // Fetching Productss data
+  // Warm the next product tab while the home content is visible. The catalog
+  // cache shares this request if the user opens Best Sellers before it finishes.
   useEffect(() => {
-    const fetchProduct = async () => {
-      if (!isFirstLoad.current) setRefreshing(true);
-      try {
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/api/products/${collectionHandle}`,
-        );
-        const data: Product[] = await response.json();
-        setAllProducts(shuffleArray(data));
-      } catch (error) {
-        console.log("Product fetch error:", error);
-      } finally {
-        if (isFirstLoad.current) {
-          setLoading(false);
-          isFirstLoad.current = false;
-        }
-        setRefreshing(false);
-      }
-    };
-    fetchProduct();
-  }, [collectionHandle]);
+    void fetchCatalog<Product[]>(collectionPath("bestseller")).catch(() => {});
+  }, []);
   // fetch kids Productss data
   useEffect(() => {
     const fetchKids = async () => {
@@ -813,27 +833,23 @@ export default function Index() {
     fetchMenu();
   }, []);
 
-  useEffect(() => {
-    if (menuData.length === 0) return;
+  const categories = useMemo<Category[]>(() => {
     const activeMenu = menuData.find((item) => item.title === activeNav);
-    if (activeMenu && activeMenu.subcategories.length > 0) {
-      setCategories(
-        activeMenu.subcategories.map((sub) => ({
-          name: sub.title,
-          handle: sub.handle,
-          image: CATEGORY_IMAGES[sub.handle] ?? DEFAULT_IMAGE,
-        })),
-      );
-    } else {
-      setCategories([]);
-    }
+    return (activeMenu?.subcategories ?? []).map((sub) => ({
+      name: sub.title,
+      handle: sub.handle,
+      image: CATEGORY_IMAGES[sub.handle] ?? DEFAULT_IMAGE,
+    }));
   }, [activeNav, menuData]);
   // Read AsyncStorage For Intrested PRoduct
   useFocusEffect(
     useCallback(() => {
+      let active = true;
       const getInterestedProducts = async () => {
         try {
           const data = await AsyncStorage.getItem("saveIntrestedProduct");
+          if (!active || data === interestedSnapshot.current) return;
+          interestedSnapshot.current = data;
           if (data) {
             setInterestedProducts(JSON.parse(data));
           } else {
@@ -845,6 +861,7 @@ export default function Index() {
       };
 
       getInterestedProducts();
+      return () => { active = false; };
     }, []),
   );
 
@@ -876,17 +893,13 @@ export default function Index() {
   }, [interestedProducts]);
 
   const onRefresh = async () => {
-    setPullToRefresh(true);
+    setRefreshingHandle(collectionHandle);
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/products/${collectionHandle}`,
-      );
-      const data: Product[] = await response.json();
-      setAllProducts(shuffleArray(data));
-    } catch (error) {
-      console.log(error);
+      await productsQuery.refresh();
     } finally {
-      setPullToRefresh(false);
+      setRefreshingHandle((current) =>
+        current === collectionHandle ? null : current,
+      );
     }
   };
 
@@ -945,6 +958,7 @@ export default function Index() {
     ),
     [
       banners,
+      activeNav,
       categories,
       width,
       bannerHeight,
@@ -952,89 +966,109 @@ export default function Index() {
       renderCategory,
       recommendedProducts,
       interestedProducts,
+      kidsProducts,
+      renderProduct,
     ],
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: "#f6f6f6" }}>
-      {loading ? (
-        <HomeSkeleton />
-      ) : (
-        <>
-          <Header activeNav={activeNav} setActiveNav={setActiveNav} />
+      <>
+        <Header activeNav={activeNav} setActiveNav={selectNav} />
 
-          {refreshing && (
-            <View
-              style={{
-                position: "absolute",
-                top: insets.top + 100,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 9999,
-                backgroundColor: "#f6f6f6",
-              }}
-            >
-              <CircleLoader />
-            </View>
-          )}
-
-          <FlatList
-            data={filteredProducts}
-            keyExtractor={keyExtractor}
-            numColumns={2}
-            // renderItem={renderProduct}
-            renderItem={showHomeLayout ? null : renderProduct}
-            ListHeaderComponent={listHeaderElement}
-            columnWrapperStyle={styles.columnWrapper}
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={6}
-            maxToRenderPerBatch={4}
-            updateCellsBatchingPeriod={50}
-            windowSize={7}
-            removeClippedSubviews={true}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={{
-              itemVisiblePercentThreshold: 40,
-            }}
-            ListFooterComponent={
-              <View>
-                {!showHomeLayout && <WarrningLable />}
-                <View style={{ height: 60 + insets.bottom }} />
+        <FlatList
+          ref={listRef}
+          data={showHomeLayout ? EMPTY_PRODUCTS : filteredProducts}
+          keyExtractor={keyExtractor}
+          numColumns={2}
+          // renderItem={renderProduct}
+          renderItem={showHomeLayout ? null : renderProduct}
+          ListHeaderComponent={listHeaderElement}
+          ListEmptyComponent={
+            !showHomeLayout ? (
+              <View
+                style={{
+                  minHeight: 160,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {productsQuery.loading ? (
+                  <CircleLoader />
+                ) : (
+                  <>
+                    <Text>
+                      {productsQuery.offline
+                        ? "You're offline. Please check your connection."
+                        : (productsQuery.error ?? "No products found.")}
+                    </Text>
+                    {(productsQuery.error || productsQuery.offline) && (
+                      <Pressable onPress={onRefresh} style={{ padding: 16 }}>
+                        <Text style={{ color: "#A83F56" }}>Try again</Text>
+                      </Pressable>
+                    )}
+                  </>
+                )}
               </View>
-            }
-            contentInsetAdjustmentBehavior="never"
-            refreshControl={
-              <RefreshControl
-                refreshing={pullToRefresh}
-                onRefresh={onRefresh}
-                colors={["#F87387"]}
-                tintColor="#F87387"
-                progressViewOffset={insets.top + 90}
-              />
-            }
-          />
+            ) : null
+          }
+          columnWrapperStyle={styles.columnWrapper}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={6}
+          maxToRenderPerBatch={4}
+          updateCellsBatchingPeriod={50}
+          windowSize={7}
+          removeClippedSubviews={true}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{
+            itemVisiblePercentThreshold: 40,
+          }}
+          ListFooterComponent={
+            <View>
+              {!showHomeLayout && <WarrningLable />}
+              <View style={{ height: 60 + insets.bottom }} />
+            </View>
+          }
+          contentInsetAdjustmentBehavior="never"
+          refreshControl={
+            <RefreshControl
+              refreshing={pullToRefresh}
+              onRefresh={onRefresh}
+              colors={["#F87387"]}
+              tintColor="#F87387"
+              progressViewOffset={insets.top + 90}
+            />
+          }
+        />
 
-          <FilterModal
-            visible={filterVisible}
-            onClose={() => setFilterVisible(false)}
-            onApply={(filters) => setActiveFilters(filters)}
-          />
-        </>
-      )}
+        {switchingNav && (
+          <View
+            style={styles.navSwitchOverlay}
+            accessible
+            accessibilityLabel="Switching collection"
+            accessibilityState={{ busy: true }}
+          >
+            <ActivityIndicator size="large" color="#F87387" />
+          </View>
+        )}
+
+        <FilterModal
+          visible={focused && filterVisible}
+          onClose={() => setFilterVisible(false)}
+          onApply={(filters) => setActiveFilters(filters)}
+        />
+      </>
 
       {/* Similar products modal */}
 
       <Similarproductsmodal
-        visible={similarModal}
+        visible={focused && similarModal}
         product={selectedProduct}
         onClose={() => setSimilarModal(false)}
       />
 
       <LoginRewardModal
-        visible={loginRewardModal}
+        visible={focused && loginRewardModal}
         onClose={handleClose}
         onClaim={handleClaim}
         offerPercentage={offerPercentage}
@@ -1043,18 +1077,15 @@ export default function Index() {
   );
 }
 
-// ─── STABLE SHUFFLE ───────────────────────────────────────────────────────────
-function shuffleArray<T>(array: T[]): T[] {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  navSwitchOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(246,246,246,0.85)",
+  },
   bannerSlide: {
     height: "100%",
     overflow: "hidden",

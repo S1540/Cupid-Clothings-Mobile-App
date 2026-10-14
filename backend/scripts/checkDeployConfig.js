@@ -3,7 +3,7 @@ const path = require("node:path");
 require("dotenv").config({ path: path.join(__dirname, "../.env"), quiet: true });
 
 const missing = [];
-for (const key of ["SHOPIFY_WEBHOOK_SECRET", "SHIPROCKET_WEBHOOK_TOKEN", "SHOPIFY_STOREFRONT_TOKEN"]) {
+for (const key of ["SHOPIFY_WEBHOOK_SECRET", "SHIPROCKET_WEBHOOK_TOKEN", "SHOPIFY_STOREFRONT_TOKEN", "SHOPIFY_ADMIN_ACCESS_TOKEN"]) {
   if (!process.env[key]?.trim()) missing.push(key);
 }
 if (!require("../services/shopifyConfig").storefrontConfig().valid) missing.push("valid Shopify Storefront configuration");
